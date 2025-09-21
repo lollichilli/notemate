@@ -1,0 +1,26 @@
+### Create doc
+POST http://localhost:4000/api/v1/documents
+Content-Type: application/json
+
+{ "title": "Lecture Notes" }
+
+# ### Parse Markdown
+# POST http://localhost:4000/api/v1/documents/{{docId}}/parse-md
+# Content-Type: application/json
+
+# { "markdown": "# Heading\nSome text\n- bullet1\n- bullet2" }
+
+# ### List blocks
+# GET http://localhost:4000/api/v1/documents/{{docId}}/blocks
+
+
+### Parse Markdown
+POST http://localhost:4000/api/v1/documents/68c859be3b541899462fd1bc/parse-md
+Content-Type: application/json
+
+{
+  "markdown": "# Heading\nSome text\n- bullet1\n- bullet2"
+}
+
+### List blocks
+GET http://localhost:4000/api/v1/documents/68c859be3b541899462fd1bc/blocks

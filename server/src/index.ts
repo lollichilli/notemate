@@ -3,6 +3,8 @@ import cors from "cors";
 import morgan from "morgan";
 import dotenv from "dotenv";
 import mongoose from "mongoose";
+import v1 from "./routes/v1";
+
 
 dotenv.config();
 
@@ -27,6 +29,8 @@ if (!MONGODB_URI) {
     console.error("Missing MONGODB_URI in server/.env");
     process.exit(1);
 }
+
+app.use("/api/v1", v1);
   
 mongoose
 .connect(MONGODB_URI)
