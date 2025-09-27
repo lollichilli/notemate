@@ -4,6 +4,7 @@ import morgan from "morgan";
 import dotenv from "dotenv";
 import mongoose from "mongoose";
 import v1 from "./routes/v1";
+import cors from "cors";
 
 dotenv.config();
 
@@ -11,7 +12,8 @@ const PORT = Number(process.env.PORT || 4000);
 const MONGODB_URI = process.env.MONGODB_URI;
 
 const app = express();
-app.use(cors());
+const WEB_ORIGIN = process.env.WEB_ORIGIN || "*";
+app.use(cors({ origin: WEB_ORIGIN }));
 app.use(express.json({ limit: "5mb" }));
 app.use(morgan("dev"));
 
