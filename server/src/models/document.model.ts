@@ -17,7 +17,8 @@ const DocumentSchema = new Schema<IDocument>(
       fileType: { type: String, enum: ["md", "pdf"], required: true },
       originalName: { type: String, required: true },
       sizeBytes: { type: Number, required: true },
-      storageKey: { type: String, required: true }
+      storageKey: { type: String, required: true },
+      rawText: { type: String }
     },
     parse: {
       status: { type: String, enum: ["pending", "done", "failed"], default: "pending", index: true },
