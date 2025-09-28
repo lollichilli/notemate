@@ -4,7 +4,6 @@ import morgan from "morgan";
 import dotenv from "dotenv";
 import mongoose from "mongoose";
 import v1 from "./routes/v1";
-import cors from "cors";
 
 dotenv.config();
 

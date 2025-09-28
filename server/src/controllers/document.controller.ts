@@ -3,6 +3,14 @@ import { Types } from "mongoose";
 import { Document } from "../models/document.model";
 import { DocBlock } from "../models/docblock.model";
 
+type InsertBlock = {
+  documentId: Types.ObjectId;
+  page: number;
+  blockIndex: number;
+  type: "heading" | "paragraph" | "list";
+  text: string;
+};
+
 export async function listDocuments(_req: Request, res: Response) {
   const docs = await Document.find().sort({ createdAt: -1 }).limit(50);
   res.json(docs);
@@ -33,8 +41,9 @@ export async function parseMarkdownIntoBlocks(req: Request, res: Response) {
   const { markdown } = req.body ?? {};
 
   if (!Types.ObjectId.isValid(id)) return res.status(400).json({ error: "invalid id" });
-  if (typeof markdown !== "string" || !markdown.trim())
+  if (typeof markdown !== "string" || !markdown.trim()) {
     return res.status(400).json({ error: "markdown (string) is required" });
+  }
 
   const doc = await Document.findById(id);
   if (!doc) return res.status(404).json({ error: "document not found" });
@@ -43,18 +52,19 @@ export async function parseMarkdownIntoBlocks(req: Request, res: Response) {
   const lines = text.split("\n");
 
   let blockIndex = 0;
-  const blocks = [] as Parameters<typeof DocBlock.insertMany>[0];
+  const blocks: InsertBlock[] = [];
 
-  const pushBlock = (type: "heading" | "paragraph" | "list" | "code", content: string) => {
+  const pushBlock = (type: InsertBlock["type"] | "code", content: string) => {
     const trimmed = content.trim();
     if (!trimmed) return;
-    // For now, we store code as paragraph text (you can add a "code" type later)
-    const storeType = type === "code" ? "paragraph" : type;
+
+    const storeType: InsertBlock["type"] = type === "code" ? "paragraph" : type;
+
     blocks.push({
       documentId: doc._id,
       page: 1,
       blockIndex: blockIndex++,
-      type: storeType as "heading" | "paragraph" | "list",
+      type: storeType,
       text: trimmed,
     });
   };
@@ -66,7 +76,6 @@ export async function parseMarkdownIntoBlocks(req: Request, res: Response) {
 
   const flushParagraph = () => {
     if (paraBuffer.length) {
-      // Join paragraph lines with spaces, collapse extra whitespace
       pushBlock("paragraph", paraBuffer.join(" ").replace(/\s+/g, " "));
       paraBuffer = [];
     }
@@ -74,7 +83,6 @@ export async function parseMarkdownIntoBlocks(req: Request, res: Response) {
 
   const flushList = () => {
     if (listBuffer.length) {
-      // keep list items newline-separated within one block
       pushBlock("list", listBuffer.join("\n"));
       listBuffer = [];
     }
@@ -92,11 +100,9 @@ export async function parseMarkdownIntoBlocks(req: Request, res: Response) {
 
     if (/^```/.test(line.trim())) {
       if (inCode) {
-        // closing fence
         inCode = false;
         flushCode();
       } else {
-        // opening fence (close any open paragraph/list first)
         inCode = true;
         flushParagraph();
         flushList();
@@ -111,7 +117,7 @@ export async function parseMarkdownIntoBlocks(req: Request, res: Response) {
 
     const t = line.trim();
 
-    // blank line -> break between blocks
+    // blank line -> block break
     if (!t) {
       flushList();
       flushParagraph();
@@ -126,21 +132,19 @@ export async function parseMarkdownIntoBlocks(req: Request, res: Response) {
       continue;
     }
 
-    // list item
+    // list item (-, *, +)
     if (/^[-*+]\s+/.test(t)) {
-      // starting/continuing a list: ensure paragraph is closed
       flushParagraph();
       listBuffer.push(t.replace(/^[-*+]\s+/, ""));
       continue;
     }
 
-    // normal text -> part of current paragraph
-    // if we were in a list, close it first
+    // normal text → paragraph
     flushList();
     paraBuffer.push(t);
   }
 
-  // flush any trailing buffers
+  // flush trailing buffers
   flushCode();
   flushList();
   flushParagraph();
@@ -150,9 +154,8 @@ export async function parseMarkdownIntoBlocks(req: Request, res: Response) {
 
   doc.parse = { status: "done", pages: 1, engine: "markdown-basic", error: null };
   doc.source.sizeBytes = markdown.length;
-  doc.source.rawText = markdown;
+  (doc.source as typeof doc.source & { rawText?: string }).rawText = markdown;
   await doc.save();
-
 
   res.json({ ok: true, blocksCreated: result.length });
 }
@@ -168,7 +171,9 @@ export async function listBlocksByDocument(req: Request, res: Response) {
 export async function getDocument(req: Request, res: Response) {
   const { id } = req.params;
   if (!Types.ObjectId.isValid(id)) return res.status(400).json({ error: "invalid id" });
+
   const doc = await Document.findById(id);
   if (!doc) return res.status(404).json({ error: "document not found" });
+
   res.json(doc);
 }

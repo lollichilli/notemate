@@ -4,10 +4,22 @@ export interface IDocument {
   _id: Types.ObjectId;
   title: string;
   uploaderId?: Types.ObjectId | null;
-  source: { fileType: "md" | "pdf"; originalName: string; sizeBytes: number; storageKey: string };
-  parse: { status: "pending" | "done" | "failed"; pages?: number; engine?: string; error?: string | null };
+  source: {
+    fileType: "md" | "pdf";
+    originalName: string;
+    sizeBytes: number;
+    storageKey: string;
+    rawText?: string;
+  };
+  parse: {
+    status: "pending" | "done" | "failed";
+    pages?: number;
+    engine?: string;
+    error?: string | null;
+  };
   tags: string[];
 }
+
 
 const DocumentSchema = new Schema<IDocument>(
   {
@@ -18,7 +30,7 @@ const DocumentSchema = new Schema<IDocument>(
       originalName: { type: String, required: true },
       sizeBytes: { type: Number, required: true },
       storageKey: { type: String, required: true },
-      rawText: { type: String }
+      rawText: { type: String, default: "" }
     },
     parse: {
       status: { type: String, enum: ["pending", "done", "failed"], default: "pending", index: true },
