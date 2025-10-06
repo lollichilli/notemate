@@ -18,7 +18,7 @@ export async function register(req: Request, res: Response) {
     const user = await User.create({ name, email, password: hashed });
 
     const token = jwt.sign({ id: user._id }, JWT_SECRET, { expiresIn: "7d" });
-    res.json({ token, user });
+    res.status(201).json({ token, user }); // Add .status(201)
   } catch (err: any) {
     console.error("Register error:", err);
     res.status(500).json({ message: "Register failed" });
