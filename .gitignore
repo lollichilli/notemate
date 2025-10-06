@@ -4,3 +4,4 @@
 .env.local
 server/.env
 client/.env
+node_modules/
