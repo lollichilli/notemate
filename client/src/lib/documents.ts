@@ -53,3 +53,31 @@ export async function getDocument(id: string): Promise<Doc & { source?: any }> {
   if (!r.ok) throw new Error("Failed to get document");
   return r.json();
 }
+
+export async function uploadPdfAndParse(documentId: string, file: File) {
+  const fd = new FormData();
+  fd.append("file", file);
+
+  const url = `${API_URL}/api/v1/documents/${encodeURIComponent(
+    documentId
+  )}/parse-pdf`;
+
+  let r: Response;
+  try {
+    r = await fetch(url, {
+      method: "POST",
+      body: fd,
+    });
+  } catch (netErr: any) {
+    throw new Error(`Network error hitting ${url}: ${netErr?.message ?? netErr}`);
+  }
+
+  if (!r.ok) {
+    const text = await r.text();
+    throw new Error(
+      `HTTP ${r.status} ${r.statusText} from ${url} — ${text.slice(0, 500)}`
+    );
+  }
+  return r.json();
+}
+

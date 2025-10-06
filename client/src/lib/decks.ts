@@ -1,3 +1,4 @@
+// client/src/lib/decks.ts
 import { API_URL } from "./api";
 
 export type Deck = {
@@ -33,6 +34,12 @@ export async function createDeck(name: string): Promise<Deck> {
   return r.json();
 }
 
+export async function getDeck(deckId: string): Promise<Deck & { dueCount?: number }> {
+  const r = await fetch(`${API_URL}/api/v1/decks/${deckId}`);
+  if (!r.ok) throw new Error("Failed to load deck");
+  return r.json();
+}
+
 export async function listCards(deckId: string): Promise<Card[]> {
   const r = await fetch(`${API_URL}/api/v1/decks/${deckId}/cards`);
   if (!r.ok) throw new Error("Failed to list cards");
@@ -45,7 +52,10 @@ export async function listDue(deckId: string): Promise<Card[]> {
   return r.json();
 }
 
-export async function reviewCard(cardId: string, result: "again" | "gotit") {
+export const getAllCards = listCards;
+export const getDueCards = listDue;
+
+export async function reviewCard(cardId: string, result: "again" | "good") {
   const r = await fetch(`${API_URL}/api/v1/cards/${cardId}/review`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -56,15 +66,14 @@ export async function reviewCard(cardId: string, result: "again" | "gotit") {
 }
 
 export async function createCard(
-    deckId: string,
-    payload: { type?: "basic" | "mcq" | "cloze"; prompt: string; answer: string; blockId?: string }
-  ) {
-    const r = await fetch(`${API_URL}/api/v1/decks/${deckId}/cards`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
-    if (!r.ok) throw new Error("Failed to create card");
-    return r.json();
-  }
-  
+  deckId: string,
+  payload: { type?: "basic" | "mcq" | "cloze"; prompt: string; answer: string; blockId?: string }
+) {
+  const r = await fetch(`${API_URL}/api/v1/decks/${deckId}/cards`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  if (!r.ok) throw new Error("Failed to create card");
+  return r.json();
+}

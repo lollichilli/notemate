@@ -9,6 +9,8 @@ import {
   type Card,
 } from "../lib/decks";
 
+type StudyMode = "due" | "all";
+
 export default function Decks() {
   const [decks, setDecks] = useState<Deck[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -17,6 +19,11 @@ export default function Decks() {
   const [newName, setNewName] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const [mode, setMode] = useState<StudyMode>("due");
+  const [session, setSession] = useState<Card[]>([]);
+  const [idx, setIdx] = useState(0);
+  const [showAnswer, setShowAnswer] = useState(false);
 
   const selectedDeck = useMemo(
     () => decks.find((d) => d._id === selectedId) ?? null,
@@ -40,6 +47,9 @@ export default function Decks() {
     if (!selectedId) {
       setCards([]);
       setDue([]);
+      setSession([]);
+      setIdx(0);
+      setShowAnswer(false);
       return;
     }
     (async () => {
@@ -49,6 +59,9 @@ export default function Decks() {
         const [c, q] = await Promise.all([listCards(selectedId), listDue(selectedId)]);
         setCards(c);
         setDue(q);
+        setSession([]);
+        setIdx(0);
+        setShowAnswer(false);
       } catch (e: any) {
         setError(e?.message || "Failed to load deck data");
       } finally {
@@ -73,23 +86,66 @@ export default function Decks() {
     }
   };
 
-  const onReview = async (cardId: string, result: "again" | "gotit") => {
+  async function startSession(nextMode: StudyMode) {
+    if (!selectedId) return;
     try {
-      setError(null);
       setLoading(true);
-      await reviewCard(cardId, result);
-      if (selectedId) {
-        const q = await listDue(selectedId);
-        setDue(q);
-      }
+      setError(null);
+      setMode(nextMode);
+      const seed = nextMode === "due" ? await listDue(selectedId) : await listCards(selectedId);
+      setSession(seed);
+      setIdx(0);
+      setShowAnswer(false);
     } catch (e: any) {
-      setError(e?.message || "Failed to review card");
+      setError(e?.message || "Failed to start session");
     } finally {
       setLoading(false);
     }
-  };
+  }
 
-  const currentDue = due[0];
+  const current = session[idx] ?? null;
+
+  async function handleAgain() {
+    if (!current) return;
+    try {
+      await reviewCard(current._id, "again");
+    } catch {
+    }
+    setSession((prev) => {
+      if (prev.length <= 1) return prev;
+      const copy = prev.slice();
+      const [card] = copy.splice(idx, 1);
+      copy.push(card);
+      return copy;
+    });
+    setShowAnswer(false);
+    if (selectedId) {
+      listDue(selectedId).then(setDue).catch(() => {});
+    }
+  }
+
+  async function handleGotIt() {
+    if (!current) return;
+    try {
+      await reviewCard(current._id, "gotit");
+    } catch {
+    }
+    setSession((prev) => {
+      const copy = prev.slice();
+      copy.splice(idx, 1);
+      if (idx >= copy.length) setIdx(Math.max(0, copy.length - 1));
+      return copy;
+    });
+    setShowAnswer(false);
+    if (selectedId) {
+      Promise.all([listCards(selectedId), listDue(selectedId)])
+        .then(([c, q]) => {
+          setCards(c);
+          setDue(q);
+        })
+        .catch(() => {});
+    }
+  }
 
   return (
     <section style={{ padding: 16, display: "grid", gridTemplateColumns: "280px 1fr", gap: 16 }}>
@@ -139,7 +195,15 @@ export default function Decks() {
       {/* right: Cards & Study */}
       <div>
         {error && (
-          <div style={{ background: "#ffe9e9", border: "1px solid #ffb3b3", padding: 8, borderRadius: 6, marginBottom: 12 }}>
+          <div
+            style={{
+              background: "#ffe9e9",
+              border: "1px solid #ffb3b3",
+              padding: 8,
+              borderRadius: 6,
+              marginBottom: 12,
+            }}
+          >
             {error}
           </div>
         )}
@@ -154,40 +218,57 @@ export default function Decks() {
         <div style={{ display: "grid", gap: 16, marginTop: 12 }}>
           {/* study panel */}
           <section style={{ border: "1px solid #eee", borderRadius: 8, padding: 12 }}>
-            <div style={{ marginBottom: 8, display: "flex", justifyContent: "space-between" }}>
+            <div
+              style={{
+                marginBottom: 8,
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                gap: 8,
+              }}
+            >
               <strong>Study</strong>
+              <div style={{ display: "flex", gap: 8 }}>
+                <button disabled={!selectedId || loading} onClick={() => startSession("due")}>
+                  Study due
+                </button>
+                <button disabled={!selectedId || loading} onClick={() => startSession("all")}>
+                  Study all
+                </button>
+              </div>
               <span style={{ fontSize: 12, color: "#666" }}>
-                Due now: {due.length}
+                Mode: {mode} • Due now: {due.length} • In session: {session.length}
               </span>
             </div>
 
-            {!currentDue ? (
+            {!current ? (
               <div style={{ fontSize: 14, color: "#666" }}>
-                No cards due. Great job!
+                {session.length === 0
+                  ? "No cards in session. Click “Study due” or “Study all”."
+                  : "Session complete. Nice work!"}
               </div>
             ) : (
               <div>
-                <div style={{ marginBottom: 8 }}>
-                  <div style={{ fontSize: 12, color: "#666", marginBottom: 6 }}>
-                    Box {currentDue.leitner.box} • Next due:{" "}
-                    {new Date(currentDue.leitner.nextReviewAt).toLocaleString()}
-                  </div>
-                  <div style={{ fontWeight: 600, marginBottom: 6 }}>
-                    {currentDue.prompt}
-                  </div>
-                  <details>
-                    <summary style={{ cursor: "pointer" }}>Show answer</summary>
-                    <div style={{ marginTop: 6 }}>{currentDue.answer}</div>
-                  </details>
+                <div style={{ fontSize: 12, color: "#666", marginBottom: 6 }}>
+                  Card {idx + 1} / {session.length} • Box {current.leitner.box} • Next{" "}
+                  {new Date(current.leitner.nextReviewAt).toLocaleString()}
                 </div>
-                <div style={{ display: "flex", gap: 8 }}>
-                  <button onClick={() => onReview(currentDue._id, "again")} style={{ padding: "8px 10px", borderRadius: 6 }}>
-                    Again
+
+                <div style={{ fontWeight: 600, marginBottom: 6 }}>{current.prompt}</div>
+
+                {!showAnswer ? (
+                  <button onClick={() => setShowAnswer(true)} style={{ marginBottom: 8 }}>
+                    Show answer
                   </button>
-                  <button onClick={() => onReview(currentDue._id, "gotit")} style={{ padding: "8px 10px", borderRadius: 6 }}>
-                    Got it
-                  </button>
-                </div>
+                ) : (
+                  <>
+                    <div style={{ marginBottom: 10, whiteSpace: "pre-wrap" }}>{current.answer}</div>
+                    <div style={{ display: "flex", gap: 8 }}>
+                      <button onClick={handleAgain}>Again</button>
+                      <button onClick={handleGotIt}>Got it</button>
+                    </div>
+                  </>
+                )}
               </div>
             )}
           </section>
@@ -196,15 +277,23 @@ export default function Decks() {
           <section style={{ border: "1px solid #eee", borderRadius: 8, padding: 12 }}>
             <strong>Cards in deck</strong>
             {!cards.length ? (
-              <div style={{ fontSize: 14, color: "#666", marginTop: 6 }}>
-                No cards yet.
-              </div>
+              <div style={{ fontSize: 14, color: "#666", marginTop: 6 }}>No cards yet.</div>
             ) : (
-              <ul style={{ listStyle: "none", padding: 0, margin: "8px 0 0", display: "grid", gap: 8 }}>
+              <ul
+                style={{
+                  listStyle: "none",
+                  padding: 0,
+                  margin: "8px 0 0",
+                  display: "grid",
+                  gap: 8,
+                }}
+              >
                 {cards.map((c) => (
                   <li key={c._id} style={{ border: "1px solid #eee", borderRadius: 8, padding: 10 }}>
                     <div style={{ fontSize: 12, color: "#666", marginBottom: 4 }}>
-                      Box {c.leitner.box} • Next: {new Date(c.leitner.nextReviewAt).toLocaleString()} • Correct {c.stats.correct} / Incorrect {c.stats.incorrect}
+                      Box {c.leitner.box} • Next:{" "}
+                      {new Date(c.leitner.nextReviewAt).toLocaleString()} • Correct{" "}
+                      {c.stats.correct} / Incorrect {c.stats.incorrect}
                     </div>
                     <div style={{ fontWeight: 600 }}>{c.prompt}</div>
                     <div style={{ marginTop: 4 }}>{c.answer}</div>

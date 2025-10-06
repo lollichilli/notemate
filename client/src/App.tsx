@@ -1,12 +1,17 @@
-import { Link, Route, Routes, Navigate } from "react-router-dom";
+import { Link, Route, Routes, Navigate, NavLink, useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
+import { useAuth } from "./contexts/AuthContext";
 import { API_URL } from "./lib/api";
 import Dashboard from "./pages/Dashboard";
 import Documents from "./pages/Documents";
 import Decks from "./pages/Decks";
+import Login from "./pages/Login";
+import Signup from "./pages/Signup";
 
 export default function App() {
   const [health, setHealth] = useState<string>("Checking...");
+  const { user, logout, isLoading } = useAuth();
+  const navigate = useNavigate();
 
   useEffect(() => {
     fetch(`${API_URL}/health`)
@@ -15,9 +20,16 @@ export default function App() {
       .catch(() => setHealth("API unreachable"));
   }, []);
 
+  if (isLoading) {
+    return (
+      <div style={{ padding: 16, fontFamily: "system-ui, sans-serif" }}>
+        Loading...
+      </div>
+    );
+  }
+
   return (
     <div style={{ fontFamily: "system-ui, sans-serif" }}>
-      {/* Navbar */}
       <header
         style={{
           display: "flex",
@@ -31,27 +43,89 @@ export default function App() {
           zIndex: 10,
         }}
       >
-        <nav style={{ display: "flex", gap: 16 }}>
-          <Link to="/" style={{ fontWeight: 700, textDecoration: "none" }}>
+        <nav style={{ display: "flex", gap: 16, alignItems: "center" }}>
+          <NavLink to="/" style={{ fontWeight: 700, textDecoration: "none", color: "#333" }}>
             NoteMate
-          </Link>
-          <Link to="/dashboard">Dashboard</Link>
-          <Link to="/documents">Documents</Link>
-          <Link to="/decks">Decks</Link>
+          </NavLink>
+          {user && (
+            <>
+              <NavLink to="/dashboard" style={{ textDecoration: "none", color: "#666" }}>Dashboard</NavLink>
+              <NavLink to="/documents" style={{ textDecoration: "none", color: "#666" }}>Documents</NavLink>
+              <NavLink to="/decks" style={{ textDecoration: "none", color: "#666" }}>Decks</NavLink>
+            </>
+          )}
         </nav>
-        <div>
-          API: <strong>{health}</strong>
+
+        <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+          <div style={{ fontSize: 12, color: "#999" }}>
+            API: <strong style={{ color: health === "Connected" ? "#22c55e" : "#ef4444" }}>{health}</strong>
+          </div>
+          
+          {user ? (
+            <>
+              <span style={{ fontSize: 13, color: "#666" }}>
+                {user.name || user.email}
+              </span>
+              <button
+                onClick={() => { logout(); navigate("/login", { replace: true }); }}
+                style={{
+                  padding: "8px 14px",
+                  borderRadius: 6,
+                  border: "1px solid #ddd",
+                  background: "white",
+                  cursor: "pointer",
+                  fontSize: 13
+                }}
+              >
+                Logout
+              </button>
+            </>
+          ) : (
+            <div style={{ display: "flex", gap: 8 }}>
+              <Link to="/login">
+                <button
+                  style={{
+                    padding: "8px 14px",
+                    borderRadius: 6,
+                    border: "none",
+                    background: "#5B5FED",
+                    color: "white",
+                    cursor: "pointer",
+                    fontSize: 13,
+                    fontWeight: 600
+                  }}
+                >
+                  Login
+                </button>
+              </Link>
+              {/* Optional: quick path to sign up */}
+              <Link to="/signup" style={{ textDecoration: "none" }}>
+                <button
+                  style={{
+                    padding: "8px 14px",
+                    borderRadius: 6,
+                    border: "1px solid #ddd",
+                    background: "white",
+                    cursor: "pointer",
+                    fontSize: 13
+                  }}
+                >
+                  Sign up
+                </button>
+              </Link>
+            </div>
+          )}
         </div>
       </header>
 
-      {/* Page container */}
       <main style={{ padding: 16 }}>
         <Routes>
-          <Route path="/" element={<Navigate to="/dashboard" replace />} />
-          <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/documents" element={<Documents />} />
-          <Route path="/decks" element={<Decks />} />
-          {/* 404 */}
+          <Route path="/login" element={user ? <Navigate to="/dashboard" replace /> : <Login />} />
+          <Route path="/signup" element={user ? <Navigate to="/dashboard" replace /> : <Signup />} />
+          <Route path="/" element={user ? <Navigate to="/dashboard" replace /> : <Navigate to="/login" replace />} />
+          <Route path="/dashboard" element={user ? <Dashboard /> : <Navigate to="/login" replace />} />
+          <Route path="/documents" element={user ? <Documents /> : <Navigate to="/login" replace />} />
+          <Route path="/decks" element={user ? <Decks /> : <Navigate to="/login" replace />} />
           <Route path="*" element={<p>Not found</p>} />
         </Routes>
       </main>

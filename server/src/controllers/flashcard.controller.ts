@@ -27,7 +27,6 @@ export async function createCard(req: Request, res: Response) {
     if (!Types.ObjectId.isValid(blockId)) return res.status(400).json({ error: "invalid block id" });
     const block = await DocBlock.findById(blockId);
     if (!block) return res.status(404).json({ error: "block not found" });
-    // attach source info
     source = { blockId: block._id, page: block.page, quote: block.text };
     documentId = block.documentId as unknown as Types.ObjectId;
   }
@@ -54,14 +53,14 @@ export async function listDue(req: Request, res: Response) {
   const cards = await Flashcard.find({
     deckId,
     "leitner.nextReviewAt": { $lte: now }
-  }).sort({ "leitner.nextReviewAt": 1 }).limit(100); // cap for safety
+  }).sort({ "leitner.nextReviewAt": 1 }).limit(100);
 
   res.json(cards);
 }
 
 export async function reviewCard(req: Request, res: Response) {
-  const { id } = req.params; // card id
-  const { result } = req.body ?? {}; // "again" | "gotit"
+  const { id } = req.params;
+  const { result } = req.body ?? {};
   if (!Types.ObjectId.isValid(id)) return res.status(400).json({ error: "invalid card id" });
   if (!["again", "gotit"].includes(result)) return res.status(400).json({ error: "result must be 'again' or 'gotit'" });
 

@@ -20,7 +20,6 @@ export interface IDocument {
   tags: string[];
 }
 
-
 const DocumentSchema = new Schema<IDocument>(
   {
     title: { type: String, required: true },
