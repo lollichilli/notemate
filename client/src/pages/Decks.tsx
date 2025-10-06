@@ -127,7 +127,7 @@ export default function Decks() {
   async function handleGotIt() {
     if (!current) return;
     try {
-      await reviewCard(current._id, "gotit");
+      await reviewCard(current._id, "good");
     } catch {
     }
     setSession((prev) => {

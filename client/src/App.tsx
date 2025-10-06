@@ -10,7 +10,7 @@ import Signup from "./pages/Signup";
 
 export default function App() {
   const [health, setHealth] = useState<string>("Checking...");
-  const { user, logout, isLoading } = useAuth();
+  const { user, logout} = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -19,14 +19,6 @@ export default function App() {
       .then((j) => setHealth(j.ok ? "Connected" : "API error"))
       .catch(() => setHealth("API unreachable"));
   }, []);
-
-  if (isLoading) {
-    return (
-      <div style={{ padding: 16, fontFamily: "system-ui, sans-serif" }}>
-        Loading...
-      </div>
-    );
-  }
 
   return (
     <div style={{ fontFamily: "system-ui, sans-serif" }}>

@@ -220,42 +220,6 @@ export default function Documents() {
     }
   }
 
-  async function handleFileUpload(file: File) {
-    if (!selectedId) {
-      setError("Select or create a document first");
-      return;
-    }
-    try {
-      setError(null);
-      setLoading(true);
-
-      const isPdf =
-        file.type === "application/pdf" ||
-        file.name.toLowerCase().endsWith(".pdf");
-
-      if (isPdf) {
-        await uploadPdfAndParse(selectedId, file);
-        const [doc, b] = await Promise.all([
-          getDocument(selectedId),
-          listBlocks(selectedId),
-        ]);
-        setBlocks(b);
-        const raw = (doc as any)?.source?.rawText as string | undefined;
-        setMarkdown(raw && raw.trim().length ? raw : "");
-      } else {
-        const text = await readFileAsText(file);
-        setMarkdown(text);
-        await parseMarkdown(selectedId, text);
-        const b = await listBlocks(selectedId);
-        setBlocks(b);
-      }
-    } catch (err: any) {
-      setError(err?.message || "Upload failed");
-    } finally {
-      setLoading(false);
-    }
-  }
-
   return (
     <section
       style={{
