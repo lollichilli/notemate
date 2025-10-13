@@ -19,7 +19,11 @@ const app = express();
 app.set("trust proxy", 1);
 
 const originList =
-  process.env.WEB_ORIGIN?.split(",").map(s => s.trim()).filter(Boolean) ?? ["http://localhost:5173"];
+  process.env.WEB_ORIGIN?.split(",").map(s => s.trim()).filter(Boolean) ?? [
+    "http://localhost:5173",
+    "https://notemate-one.vercel.app",
+    "https://notemate-9agnx6fmw-tung-nguyens-projects.vercel.app"
+  ];
 
 app.use(
   cors({
