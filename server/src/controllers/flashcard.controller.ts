@@ -2,6 +2,8 @@ import { Request, Response } from "express";
 import { Types } from "mongoose";
 import { Flashcard } from "../models/flashcard.model";
 import { DocBlock } from "../models/docblock.model";
+import { generateFlashcards } from '../services/openai.service';
+import { Document } from '../models/document.model';
 
 function nextReviewFromBox(box: number): Date {
   // Leitner schedule: 1,2,4,8,16 days
@@ -78,4 +80,55 @@ export async function reviewCard(req: Request, res: Response) {
   await card.save();
 
   res.json({ ok: true, card });
+}
+
+export async function generateFlashcardsFromDocument(
+  req: Request,
+  res: Response
+) {
+  try {
+    const { documentId } = req.params;
+    const { type, count } = req.body;
+
+    // Validate
+    if (!type || !['qa', 'mc'].includes(type)) {
+      return res.status(400).json({ message: 'Invalid type. Must be "qa" or "mc"' });
+    }
+
+    if (!count || ![5, 10, 20].includes(Number(count))) {
+      return res.status(400).json({ message: 'Invalid count. Must be 5, 10, or 20' });
+    }
+
+    // Get document with its blocks
+    const doc = await Document.findById(documentId).populate('blocks');
+    if (!doc) {
+      return res.status(404).json({ message: 'Document not found' });
+    }
+
+    // Extract text content from blocks - cast to any to handle populated field
+    const docWithBlocks = doc as any;
+    const content = docWithBlocks.blocks
+      .map((block: any) => block.content)
+      .join('\n\n');
+
+    if (!content || content.trim().length < 50) {
+      return res.status(400).json({ 
+        message: 'Document content too short to generate flashcards' 
+      });
+    }
+
+    // Generate flashcards with OpenAI
+    const flashcards = await generateFlashcards({
+      content,
+      type,
+      count: Number(count),
+    });
+
+    res.json({ flashcards, documentId });
+  } catch (error: any) {
+    console.error('Generate flashcards error:', error);
+    res.status(500).json({ 
+      message: error.message || 'Failed to generate flashcards' 
+    });
+  }
 }

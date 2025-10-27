@@ -147,28 +147,104 @@ export default function Decks() {
     }
   }
 
-  return (
-    <section style={{ padding: 16, display: "grid", gridTemplateColumns: "280px 1fr", gap: 16 }}>
-      {/* left: decks list + create */}
-      <aside style={{ borderRight: "1px solid #eee", paddingRight: 12 }}>
-        <h2 style={{ marginTop: 0 }}>Decks</h2>
+  const progress = session.length > 0 ? ((idx + 1) / session.length) * 100 : 0;
 
-        <div style={{ display: "grid", gap: 8, marginBottom: 16 }}>
+  return (
+    <section style={{ 
+      padding: 24,
+      display: "grid",
+      gridTemplateColumns: "300px 1fr",
+      gap: 24,
+      maxWidth: 1600,
+      margin: '0 auto',
+    }}>
+      {/* Left Sidebar - Enhanced */}
+      <aside style={{ 
+        background: '#f9fafb',
+        borderRadius: 16,
+        padding: 20,
+        height: 'fit-content',
+        border: '1px solid #e5e7eb',
+      }}>
+        <h2 style={{ 
+          marginTop: 0,
+          marginBottom: 20,
+          fontSize: 24,
+          fontWeight: 700,
+          display: 'flex',
+          alignItems: 'center',
+          gap: 8,
+        }}>
+          🎴 Decks
+        </h2>
+
+        {/* Create New Deck - Enhanced */}
+        <div style={{ 
+          display: "grid",
+          gap: 10,
+          marginBottom: 24,
+          padding: 16,
+          background: 'white',
+          borderRadius: 12,
+          border: '1px solid #e5e7eb',
+        }}>
           <input
             placeholder="New deck name"
             value={newName}
             onChange={(e) => setNewName(e.target.value)}
-            style={{ padding: 8, border: "1px solid #ddd", borderRadius: 6 }}
+            onKeyPress={(e) => e.key === 'Enter' && onCreateDeck()}
+            style={{ 
+              padding: 10,
+              border: "2px solid #e5e7eb",
+              borderRadius: 8,
+              fontSize: 14,
+              transition: 'border-color 0.2s',
+              outline: 'none',
+            }}
+            onFocus={(e) => e.currentTarget.style.borderColor = '#f59e0b'}
+            onBlur={(e) => e.currentTarget.style.borderColor = '#e5e7eb'}
           />
-          <button onClick={onCreateDeck} style={{ padding: "8px 10px", borderRadius: 6 }}>
-            Create Deck
+          <button
+            onClick={onCreateDeck}
+            disabled={!newName.trim() || loading}
+            style={{ 
+              padding: "10px 16px",
+              borderRadius: 8,
+              background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
+              color: 'white',
+              border: 'none',
+              fontWeight: 600,
+              cursor: !newName.trim() || loading ? 'not-allowed' : 'pointer',
+              opacity: !newName.trim() || loading ? 0.6 : 1,
+              transition: 'all 0.2s',
+              boxShadow: '0 2px 8px rgba(245, 158, 11, 0.3)',
+            }}
+            onMouseEnter={(e) => {
+              if (newName.trim() && !loading) {
+                e.currentTarget.style.transform = 'translateY(-1px)';
+                e.currentTarget.style.boxShadow = '0 4px 12px rgba(245, 158, 11, 0.4)';
+              }
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.transform = 'translateY(0)';
+              e.currentTarget.style.boxShadow = '0 2px 8px rgba(245, 158, 11, 0.3)';
+            }}
+          >
+            ✨ Create Deck
           </button>
         </div>
 
-        <div style={{ fontSize: 12, color: "#666", marginBottom: 8 }}>
-          {decks.length ? "Your decks:" : "No decks yet."}
+        {/* Deck List - Enhanced */}
+        <div style={{ fontSize: 12, fontWeight: 600, color: "#6b7280", marginBottom: 12, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+          {decks.length ? `Your Decks (${decks.length})` : "No decks yet"}
         </div>
-        <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "grid", gap: 6 }}>
+        <ul style={{ 
+          listStyle: "none",
+          padding: 0,
+          margin: 0,
+          display: "grid",
+          gap: 8,
+        }}>
           {decks.map((d) => (
             <li key={d._id}>
               <button
@@ -176,15 +252,37 @@ export default function Decks() {
                 style={{
                   width: "100%",
                   textAlign: "left",
-                  padding: 8,
-                  borderRadius: 6,
-                  border: "1px solid #eee",
-                  background: selectedId === d._id ? "#f5f7ff" : "white",
+                  padding: 12,
+                  borderRadius: 10,
+                  border: selectedId === d._id ? "2px solid #f59e0b" : "2px solid transparent",
+                  background: selectedId === d._id ? "white" : "transparent",
+                  cursor: 'pointer',
+                  transition: 'all 0.2s',
+                  boxShadow: selectedId === d._id ? '0 2px 8px rgba(245, 158, 11, 0.15)' : 'none',
+                }}
+                onMouseEnter={(e) => {
+                  if (selectedId !== d._id) {
+                    e.currentTarget.style.background = 'white';
+                    e.currentTarget.style.borderColor = '#e5e7eb';
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (selectedId !== d._id) {
+                    e.currentTarget.style.background = 'transparent';
+                    e.currentTarget.style.borderColor = 'transparent';
+                  }
                 }}
               >
-                <div style={{ fontWeight: 600 }}>{d.name}</div>
-                <div style={{ fontSize: 12, color: "#666" }}>
-                  {new Date(d.createdAt).toLocaleString()}
+                <div style={{ 
+                  fontWeight: 600,
+                  fontSize: 14,
+                  marginBottom: 4,
+                  color: selectedId === d._id ? '#f59e0b' : '#111827',
+                }}>
+                  {d.name}
+                </div>
+                <div style={{ fontSize: 11, color: "#9ca3af" }}>
+                  {new Date(d.createdAt).toLocaleDateString()}
                 </div>
               </button>
             </li>
@@ -192,116 +290,521 @@ export default function Decks() {
         </ul>
       </aside>
 
-      {/* right: Cards & Study */}
+      {/* Main Content Area - Enhanced */}
       <div>
+        {/* Error Display - Enhanced */}
         {error && (
           <div
             style={{
-              background: "#ffe9e9",
-              border: "1px solid #ffb3b3",
-              padding: 8,
-              borderRadius: 6,
-              marginBottom: 12,
+              background: "linear-gradient(135deg, #fee2e2 0%, #fecaca 100%)",
+              border: "1px solid #fca5a5",
+              padding: 16,
+              borderRadius: 12,
+              marginBottom: 20,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 12,
+              boxShadow: '0 2px 8px rgba(239, 68, 68, 0.1)',
             }}
           >
-            {error}
+            <span style={{ fontSize: 20 }}>⚠️</span>
+            <span style={{ color: "#991b1b", fontWeight: 500 }}>{error}</span>
           </div>
         )}
 
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <h3 style={{ margin: 0, flex: 1 }}>
-            {selectedDeck ? selectedDeck.name : "No deck selected"}
+        {/* Deck Header - Enhanced */}
+        <div style={{ 
+          display: "flex",
+          alignItems: "center",
+          justifyContent: 'space-between',
+          marginBottom: 24,
+          padding: 20,
+          background: 'white',
+          borderRadius: 16,
+          border: '1px solid #e5e7eb',
+          boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
+        }}>
+          <h3 style={{ 
+            margin: 0,
+            fontSize: 28,
+            fontWeight: 700,
+            flex: 1,
+          }}>
+            {selectedDeck ? selectedDeck.name : "📚 Select a deck"}
           </h3>
-          {loading && <span style={{ fontSize: 12, color: "#666" }}>Loading…</span>}
+          {loading && (
+            <div style={{ 
+              fontSize: 13,
+              color: "#f59e0b",
+              fontWeight: 600,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+            }}>
+              <span style={{ animation: 'spin 1s linear infinite', display: 'inline-block' }}>⏳</span>
+              Loading…
+            </div>
+          )}
         </div>
 
-        <div style={{ display: "grid", gap: 16, marginTop: 12 }}>
-          {/* study panel */}
-          <section style={{ border: "1px solid #eee", borderRadius: 8, padding: 12 }}>
-            <div
-              style={{
-                marginBottom: 8,
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
+        {/* Study Session Card - Enhanced */}
+        <div style={{ 
+          background: 'white',
+          borderRadius: 16,
+          border: '1px solid #e5e7eb',
+          padding: 24,
+          marginBottom: 20,
+          boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
+        }}>
+          <div
+            style={{
+              marginBottom: 20,
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              gap: 16,
+              flexWrap: 'wrap',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <h4 style={{ margin: 0, fontSize: 20, fontWeight: 700 }}>
+                📖 Study Session
+              </h4>
+              <div style={{
+                display: 'flex',
                 gap: 8,
-              }}
-            >
-              <strong>Study</strong>
-              <div style={{ display: "flex", gap: 8 }}>
-                <button disabled={!selectedId || loading} onClick={() => startSession("due")}>
-                  Study due
-                </button>
-                <button disabled={!selectedId || loading} onClick={() => startSession("all")}>
-                  Study all
-                </button>
+                fontSize: 12,
+                fontWeight: 600,
+              }}>
+                <span style={{
+                  padding: '4px 10px',
+                  background: '#fef3c7',
+                  color: '#92400e',
+                  borderRadius: 12,
+                }}>
+                  {due.length} due
+                </span>
+                <span style={{
+                  padding: '4px 10px',
+                  background: '#e0e7ff',
+                  color: '#3730a3',
+                  borderRadius: 12,
+                }}>
+                  {cards.length} total
+                </span>
               </div>
-              <span style={{ fontSize: 12, color: "#666" }}>
-                Mode: {mode} • Due now: {due.length} • In session: {session.length}
-              </span>
             </div>
-
-            {!current ? (
-              <div style={{ fontSize: 14, color: "#666" }}>
-                {session.length === 0
-                  ? "No cards in session. Click “Study due” or “Study all”."
-                  : "Session complete. Nice work!"}
-              </div>
-            ) : (
-              <div>
-                <div style={{ fontSize: 12, color: "#666", marginBottom: 6 }}>
-                  Card {idx + 1} / {session.length} • Box {current.leitner.box} • Next{" "}
-                  {new Date(current.leitner.nextReviewAt).toLocaleString()}
-                </div>
-
-                <div style={{ fontWeight: 600, marginBottom: 6 }}>{current.prompt}</div>
-
-                {!showAnswer ? (
-                  <button onClick={() => setShowAnswer(true)} style={{ marginBottom: 8 }}>
-                    Show answer
-                  </button>
-                ) : (
-                  <>
-                    <div style={{ marginBottom: 10, whiteSpace: "pre-wrap" }}>{current.answer}</div>
-                    <div style={{ display: "flex", gap: 8 }}>
-                      <button onClick={handleAgain}>Again</button>
-                      <button onClick={handleGotIt}>Got it</button>
-                    </div>
-                  </>
-                )}
-              </div>
-            )}
-          </section>
-
-          {/* cards list */}
-          <section style={{ border: "1px solid #eee", borderRadius: 8, padding: 12 }}>
-            <strong>Cards in deck</strong>
-            {!cards.length ? (
-              <div style={{ fontSize: 14, color: "#666", marginTop: 6 }}>No cards yet.</div>
-            ) : (
-              <ul
+            
+            <div style={{ display: "flex", gap: 10 }}>
+              <button
+                data-testid="study-due-button"
+                disabled={!selectedId || loading || due.length === 0}
+                onClick={() => startSession("due")}
                 style={{
-                  listStyle: "none",
-                  padding: 0,
-                  margin: "8px 0 0",
-                  display: "grid",
-                  gap: 8,
+                  padding: "10px 20px",
+                  borderRadius: 8,
+                  background: !selectedId || loading || due.length === 0
+                    ? '#d1d5db'
+                    : 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
+                  color: 'white',
+                  border: 'none',
+                  fontWeight: 600,
+                  cursor: !selectedId || loading || due.length === 0 ? 'not-allowed' : 'pointer',
+                  transition: 'all 0.2s',
+                  boxShadow: !selectedId || loading || due.length === 0 ? 'none' : '0 2px 8px rgba(245, 158, 11, 0.3)',
+                }}
+                onMouseEnter={(e) => {
+                  if (selectedId && !loading && due.length > 0) {
+                    e.currentTarget.style.transform = 'translateY(-1px)';
+                    e.currentTarget.style.boxShadow = '0 4px 12px rgba(245, 158, 11, 0.4)';
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.transform = 'translateY(0)';
+                  e.currentTarget.style.boxShadow = !selectedId || loading || due.length === 0 ? 'none' : '0 2px 8px rgba(245, 158, 11, 0.3)';
                 }}
               >
-                {cards.map((c) => (
-                  <li key={c._id} style={{ border: "1px solid #eee", borderRadius: 8, padding: 10 }}>
-                    <div style={{ fontSize: 12, color: "#666", marginBottom: 4 }}>
-                      Box {c.leitner.box} • Next:{" "}
-                      {new Date(c.leitner.nextReviewAt).toLocaleString()} • Correct{" "}
-                      {c.stats.correct} / Incorrect {c.stats.incorrect}
+                🎯 Study Due
+              </button>
+              <button
+                data-testid="study-all-button"
+                disabled={!selectedId || loading || cards.length === 0}
+                onClick={() => startSession("all")}
+                style={{
+                  padding: "10px 20px",
+                  borderRadius: 8,
+                  background: 'white',
+                  color: '#374151',
+                  border: '2px solid #e5e7eb',
+                  fontWeight: 600,
+                  cursor: !selectedId || loading || cards.length === 0 ? 'not-allowed' : 'pointer',
+                  transition: 'all 0.2s',
+                  opacity: !selectedId || loading || cards.length === 0 ? 0.5 : 1,
+                }}
+                onMouseEnter={(e) => {
+                  if (selectedId && !loading && cards.length > 0) {
+                    e.currentTarget.style.background = '#f3f4f6';
+                    e.currentTarget.style.borderColor = '#d1d5db';
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = 'white';
+                  e.currentTarget.style.borderColor = '#e5e7eb';
+                }}
+              >
+                📚 Study All
+              </button>
+            </div>
+          </div>
+
+          {/* Study Card Display */}
+          {!current ? (
+            <div style={{ 
+              textAlign: 'center',
+              padding: 60,
+              background: '#f9fafb',
+              borderRadius: 12,
+              border: '2px dashed #e5e7eb',
+            }}>
+              <div style={{ fontSize: 64, marginBottom: 16 }}>
+                {session.length === 0 ? "🎴" : "🎉"}
+              </div>
+              <div style={{ fontSize: 18, fontWeight: 600, color: '#374151', marginBottom: 8 }}>
+                {session.length === 0
+                  ? "Ready to Study?"
+                  : "Session Complete!"}
+              </div>
+              <div style={{ fontSize: 14, color: "#6b7280" }}>
+                {session.length === 0
+                  ? "Click a study button above to begin"
+                  : "Great work! All cards reviewed."}
+              </div>
+            </div>
+          ) : (
+            <div>
+              {/* Progress Bar */}
+              <div style={{ marginBottom: 20 }}>
+                <div style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  marginBottom: 8,
+                  fontSize: 13,
+                  fontWeight: 600,
+                  color: '#6b7280',
+                }}>
+                  <span>Card {idx + 1} of {session.length}</span>
+                  <span>{Math.round(progress)}% Complete</span>
+                </div>
+                <div style={{
+                  height: 10,
+                  background: "#e5e7eb",
+                  borderRadius: 999,
+                  overflow: "hidden",
+                  boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.06)'
+                }}>
+                  <div style={{
+                    width: `${progress}%`,
+                    height: "100%",
+                    background: 'linear-gradient(90deg, #f59e0b 0%, #d97706 100%)',
+                    transition: 'width 0.3s ease',
+                    borderRadius: 999,
+                  }} />
+                </div>
+              </div>
+
+              {/* Card Metadata */}
+              <div style={{
+                display: 'flex',
+                gap: 12,
+                marginBottom: 20,
+                fontSize: 12,
+                fontWeight: 600,
+                flexWrap: 'wrap',
+              }}>
+                <span style={{
+                  padding: '6px 12px',
+                  background: '#e0e7ff',
+                  color: '#3730a3',
+                  borderRadius: 8,
+                }}>
+                  📦 Box {current.leitner.box}
+                </span>
+                <span style={{
+                  padding: '6px 12px',
+                  background: '#fef3c7',
+                  color: '#92400e',
+                  borderRadius: 8,
+                }}>
+                  ⏰ Next: {new Date(current.leitner.nextReviewAt).toLocaleDateString()}
+                </span>
+              </div>
+
+              {/* Flashcard */}
+              <div style={{
+                background: 'linear-gradient(135deg, #fafafa 0%, #f3f4f6 100%)',
+                border: '2px solid #e5e7eb',
+                borderRadius: 16,
+                padding: 32,
+                marginBottom: 20,
+                minHeight: 200,
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'center',
+                boxShadow: '0 4px 12px rgba(0,0,0,0.05)',
+              }}>
+                <div style={{
+                  fontSize: 20,
+                  fontWeight: 600,
+                  marginBottom: 20,
+                  lineHeight: 1.6,
+                  color: '#111827',
+                }}>
+                  {current.prompt}
+                </div>
+
+                {showAnswer && (
+                  <div style={{
+                    marginTop: 20,
+                    paddingTop: 20,
+                    borderTop: '2px dashed #d1d5db',
+                  }}>
+                    <div style={{
+                      fontSize: 12,
+                      fontWeight: 700,
+                      color: '#10b981',
+                      marginBottom: 12,
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.5px',
+                    }}>
+                      ✓ Answer
                     </div>
-                    <div style={{ fontWeight: 600 }}>{c.prompt}</div>
-                    <div style={{ marginTop: 4 }}>{c.answer}</div>
-                  </li>
-                ))}
-              </ul>
+                    <div style={{
+                      fontSize: 16,
+                      lineHeight: 1.6,
+                      whiteSpace: "pre-wrap",
+                      color: '#374151',
+                    }}>
+                      {current.answer}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Action Buttons */}
+              {!showAnswer ? (
+                <button
+                  data-testid="show-answer-button"
+                  onClick={() => setShowAnswer(true)}
+                  style={{
+                    width: '100%',
+                    padding: "16px 24px",
+                    borderRadius: 12,
+                    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                    color: 'white',
+                    border: 'none',
+                    fontWeight: 700,
+                    fontSize: 16,
+                    cursor: 'pointer',
+                    transition: 'all 0.2s',
+                    boxShadow: '0 4px 12px rgba(102, 126, 234, 0.3)',
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.transform = 'translateY(-2px)';
+                    e.currentTarget.style.boxShadow = '0 6px 16px rgba(102, 126, 234, 0.4)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.transform = 'translateY(0)';
+                    e.currentTarget.style.boxShadow = '0 4px 12px rgba(102, 126, 234, 0.3)';
+                  }}
+                >
+                  👀 Show Answer
+                </button>
+              ) : (
+                <div style={{ display: "flex", gap: 12 }}>
+                  <button
+                    data-testid="again-button"
+                    onClick={handleAgain}
+                    style={{
+                      flex: 1,
+                      padding: "16px 24px",
+                      borderRadius: 12,
+                      background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
+                      color: 'white',
+                      border: 'none',
+                      fontWeight: 700,
+                      fontSize: 16,
+                      cursor: 'pointer',
+                      transition: 'all 0.2s',
+                      boxShadow: '0 4px 12px rgba(239, 68, 68, 0.3)',
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.transform = 'translateY(-2px)';
+                      e.currentTarget.style.boxShadow = '0 6px 16px rgba(239, 68, 68, 0.4)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.transform = 'translateY(0)';
+                      e.currentTarget.style.boxShadow = '0 4px 12px rgba(239, 68, 68, 0.3)';
+                    }}
+                  >
+                    ❌ Again
+                  </button>
+                  <button
+                    data-testid="got-it-button"
+                    onClick={handleGotIt}
+                    style={{
+                      flex: 1,
+                      padding: "16px 24px",
+                      borderRadius: 12,
+                      background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                      color: 'white',
+                      border: 'none',
+                      fontWeight: 700,
+                      fontSize: 16,
+                      cursor: 'pointer',
+                      transition: 'all 0.2s',
+                      boxShadow: '0 4px 12px rgba(16, 185, 129, 0.3)',
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.transform = 'translateY(-2px)';
+                      e.currentTarget.style.boxShadow = '0 6px 16px rgba(16, 185, 129, 0.4)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.transform = 'translateY(0)';
+                      e.currentTarget.style.boxShadow = '0 4px 12px rgba(16, 185, 129, 0.3)';
+                    }}
+                  >
+                    ✓ Got It
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Cards List - Enhanced */}
+        <div style={{ 
+          background: 'white',
+          borderRadius: 16,
+          border: '1px solid #e5e7eb',
+          padding: 24,
+        }}>
+          <h4 style={{ 
+            marginTop: 0,
+            marginBottom: 16,
+            fontSize: 18,
+            fontWeight: 700,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8,
+          }}>
+            🗂️ Cards in Deck
+            {cards.length > 0 && (
+              <span style={{ 
+                fontSize: 12,
+                fontWeight: 600,
+                background: '#f59e0b',
+                color: 'white',
+                padding: '4px 10px',
+                borderRadius: 12,
+              }}>
+                {cards.length}
+              </span>
             )}
-          </section>
+          </h4>
+
+          {!cards.length ? (
+            <div style={{ 
+              textAlign: 'center',
+              padding: 40,
+              background: '#f9fafb',
+              borderRadius: 12,
+              border: '2px dashed #e5e7eb',
+            }}>
+              <div style={{ fontSize: 48, marginBottom: 12 }}>📝</div>
+              <div style={{ fontSize: 14, color: "#9ca3af" }}>
+                No cards yet. Add cards from the Documents page.
+              </div>
+            </div>
+          ) : (
+            <ul
+              style={{
+                listStyle: "none",
+                padding: 0,
+                margin: 0,
+                display: "grid",
+                gap: 12,
+              }}
+            >
+              {cards.map((c) => (
+                <li
+                  key={c._id}
+                  style={{
+                    border: "1px solid #e5e7eb",
+                    borderRadius: 12,
+                    padding: 16,
+                    background: '#fafafa',
+                    transition: 'all 0.2s',
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = 'white';
+                    e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,0.06)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = '#fafafa';
+                    e.currentTarget.style.boxShadow = 'none';
+                  }}
+                >
+                  <div style={{
+                    display: 'flex',
+                    gap: 10,
+                    marginBottom: 12,
+                    fontSize: 11,
+                    fontWeight: 600,
+                    flexWrap: 'wrap',
+                  }}>
+                    <span style={{
+                      padding: '4px 8px',
+                      background: '#e0e7ff',
+                      color: '#3730a3',
+                      borderRadius: 6,
+                    }}>
+                      Box {c.leitner.box}
+                    </span>
+                    <span style={{
+                      padding: '4px 8px',
+                      background: '#fef3c7',
+                      color: '#92400e',
+                      borderRadius: 6,
+                    }}>
+                      Next: {new Date(c.leitner.nextReviewAt).toLocaleDateString()}
+                    </span>
+                    <span style={{
+                      padding: '4px 8px',
+                      background: '#d1fae5',
+                      color: '#065f46',
+                      borderRadius: 6,
+                    }}>
+                      ✓ {c.stats.correct}
+                    </span>
+                    <span style={{
+                      padding: '4px 8px',
+                      background: '#fee2e2',
+                      color: '#991b1b',
+                      borderRadius: 6,
+                    }}>
+                      ✗ {c.stats.incorrect}
+                    </span>
+                  </div>
+                  <div style={{ fontWeight: 600, marginBottom: 8, fontSize: 15 }}>
+                    {c.prompt}
+                  </div>
+                  <div style={{ fontSize: 14, color: '#6b7280', lineHeight: 1.6 }}>
+                    {c.answer}
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
       </div>
     </section>

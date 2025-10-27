@@ -5,6 +5,7 @@ import { API_URL } from "./lib/api";
 import Dashboard from "./pages/Dashboard";
 import Documents from "./pages/Documents";
 import Decks from "./pages/Decks";
+import Quizzes from "./pages/Quizzes";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
 
@@ -44,6 +45,7 @@ export default function App() {
               <NavLink to="/dashboard" style={{ textDecoration: "none", color: "#666" }}>Dashboard</NavLink>
               <NavLink to="/documents" style={{ textDecoration: "none", color: "#666" }}>Documents</NavLink>
               <NavLink to="/decks" style={{ textDecoration: "none", color: "#666" }}>Decks</NavLink>
+              <NavLink to="/quizzes" style={{ textDecoration: "none", color: "#666" }}>Quizzes</NavLink>
             </>
           )}
         </nav>
@@ -90,7 +92,6 @@ export default function App() {
                   Login
                 </button>
               </Link>
-              {/* Optional: quick path to sign up */}
               <Link to="/signup" style={{ textDecoration: "none" }}>
                 <button
                   style={{
@@ -118,6 +119,7 @@ export default function App() {
           <Route path="/dashboard" element={user ? <Dashboard /> : <Navigate to="/login" replace />} />
           <Route path="/documents" element={user ? <Documents /> : <Navigate to="/login" replace />} />
           <Route path="/decks" element={user ? <Decks /> : <Navigate to="/login" replace />} />
+          <Route path="/quizzes" element={user ? <Quizzes /> : <Navigate to="/login" replace />} />
           <Route path="*" element={<p>Not found</p>} />
         </Routes>
       </main>

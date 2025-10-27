@@ -1,1 +1,22 @@
-POST http://localhost:4000/api/v1/documents/test-parse/parse-pdf
+### Get document blocks
+GET http://localhost:4000/api/v1/documents/68c85b463b541899462fd1be/blocks
+
+
+### Login to get token
+POST http://localhost:4000/api/v1/auth/login
+Content-Type: application/json
+
+{
+  "email": "abc@gmail.com",
+  "password": "123456"
+}
+
+### Generate quiz (REPLACE YOUR_TOKEN_HERE)
+POST http://localhost:4000/api/v1/documents/68c85b463b541899462fd1be/generate-quiz
+Content-Type: application/json
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY4ZTM2NDRhZWQ2YzQzMGNiMzg4NTJlZiIsImlhdCI6MTc2MTQyNTI5MSwiZXhwIjoxNzYyMDMwMDkxfQ.OoS0YH8M3jf9W79AsHSG9w3GrhHMxNUVlQ9cxsXzVSM
+
+{
+  "type": "mcq",
+  "count": 5
+}
