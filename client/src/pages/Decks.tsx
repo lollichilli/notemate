@@ -20,7 +20,6 @@ export default function Decks() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const [mode, setMode] = useState<StudyMode>("due");
   const [session, setSession] = useState<Card[]>([]);
   const [idx, setIdx] = useState(0);
   const [showAnswer, setShowAnswer] = useState(false);

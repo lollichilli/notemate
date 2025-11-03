@@ -6,7 +6,6 @@ import {
   submitQuizAttempt,
   getQuizAttempts,
   type Quiz,
-  type QuizQuestion,
   type QuizAttempt,
 } from "../lib/quizzes";
 
