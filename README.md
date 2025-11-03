@@ -93,7 +93,7 @@ notemate/
 
 ---
 
-## 🧪 Test Coverage
+## Test Coverage
 
 This project has **comprehensive test coverage** across both frontend and backend:
 
@@ -410,7 +410,7 @@ NoteMate implements the **Leitner system** for optimal learning:
 
 ---
 
-## 📊 Database Schema
+## Database Schema
 
 ### User
 ```typescript
@@ -558,8 +558,6 @@ This project is licensed under the MIT License.
 ## Author
 
 **Tung Nguyen**
-
-- GitHub: [@lolichilli](https://github.com/lolichilli)
 
 ---
 
