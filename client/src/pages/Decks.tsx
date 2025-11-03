@@ -20,6 +20,7 @@ export default function Decks() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const [mode, setMode] = useState<StudyMode | null>(null);
   const [session, setSession] = useState<Card[]>([]);
   const [idx, setIdx] = useState(0);
   const [showAnswer, setShowAnswer] = useState(false);
@@ -375,6 +376,16 @@ export default function Decks() {
                 fontSize: 12,
                 fontWeight: 600,
               }}>
+                {mode && (
+                  <span style={{
+                    padding: '4px 10px',
+                    background: mode === 'due' ? '#fef3c7' : '#e0e7ff',
+                    color: mode === 'due' ? '#92400e' : '#3730a3',
+                    borderRadius: 12,
+                  }}>
+                    {mode === 'due' ? '🎯 Due Cards' : '📚 All Cards'}
+                  </span>
+                )}
                 <span style={{
                   padding: '4px 10px',
                   background: '#fef3c7',
@@ -392,8 +403,7 @@ export default function Decks() {
                   {cards.length} total
                 </span>
               </div>
-            </div>
-            
+            </div>            
             <div style={{ display: "flex", gap: 10 }}>
               <button
                 data-testid="study-due-button"
