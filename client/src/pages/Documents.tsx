@@ -588,19 +588,31 @@ export default function Documents() {
         </div>
 
         {/* File Upload Section - Enhanced */}
-        <div style={{ 
-          background: 'white',
-          borderRadius: 16,
-          border: '1px solid #e5e7eb',
-          padding: 20,
-          marginBottom: 20,
-        }}>
-          <h4 style={{ marginTop: 0, marginBottom: 16, fontSize: 16, fontWeight: 700, color: '#374151' }}>
+        <div
+          style={{
+            background: "white",
+            borderRadius: 16,
+            border: "1px solid #e5e7eb",
+            padding: 20,
+            marginBottom: 20,
+          }}
+        >
+          <h4
+            style={{
+              marginTop: 0,
+              marginBottom: 16,
+              fontSize: 16,
+              fontWeight: 700,
+              color: "#374151",
+            }}
+          >
             📎 Upload Content
           </h4>
-          
+
           <div style={{ display: "grid", gap: 12 }}>
+            {/* Hidden native input */}
             <input
+              id="fileUpload"
               type="file"
               accept=".md,.markdown,.txt,.pdf"
               onChange={(e) => {
@@ -609,59 +621,94 @@ export default function Documents() {
                 if (!f) return;
                 onPickFile(f);
               }}
-              style={{
-                padding: 12,
-                border: '2px dashed #d1d5db',
-                borderRadius: 10,
-                cursor: 'pointer',
-                transition: 'all 0.2s',
-              }}
+              style={{ display: "none" }} // 👈 Hide default file input
             />
 
+            {/* Custom styled label acts as button */}
+            <label
+              htmlFor="fileUpload"
+              style={{
+                display: "inline-block",
+                background: "linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)",
+                color: "white",
+                padding: "10px 18px",
+                borderRadius: 8,
+                fontWeight: 600,
+                textAlign: "center",
+                cursor: "pointer",
+                width: "fit-content",
+                transition: "transform 0.1s ease, box-shadow 0.2s ease",
+                boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
+              }}
+              onMouseDown={(e) => {
+                e.currentTarget.style.transform = "scale(0.97)";
+              }}
+              onMouseUp={(e) => {
+                e.currentTarget.style.transform = "scale(1)";
+              }}
+            >
+              Choose File
+            </label>
+
             {pdfFile ? (
-              <div style={{ 
-                display: "flex",
-                gap: 12,
-                alignItems: "center",
-                padding: 12,
-                background: '#f9fafb',
-                borderRadius: 10,
-                border: '1px solid #e5e7eb',
-              }}>
+              <div
+                style={{
+                  display: "flex",
+                  gap: 12,
+                  alignItems: "center",
+                  padding: 12,
+                  background: "#f9fafb",
+                  borderRadius: 10,
+                  border: "1px solid #e5e7eb",
+                }}
+              >
                 <span style={{ fontSize: 12, color: "#6b7280", flex: 1 }}>
                   📄 <strong>{pdfName}</strong>
                 </span>
                 <button
                   onClick={onParsePdf}
                   disabled={!selectedId || !pdfFile || loading}
-                  style={{ 
+                  style={{
                     padding: "8px 16px",
                     borderRadius: 8,
-                    background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-                    color: 'white',
-                    border: 'none',
+                    background:
+                      "linear-gradient(135deg, #10b981 0%, #059669 100%)",
+                    color: "white",
+                    border: "none",
                     fontWeight: 600,
                     fontSize: 13,
-                    cursor: !selectedId || !pdfFile || loading ? 'not-allowed' : 'pointer',
-                    opacity: !selectedId || !pdfFile || loading ? 0.6 : 1,
-                    transition: 'all 0.2s',
+                    cursor:
+                      !selectedId || !pdfFile || loading
+                        ? "not-allowed"
+                        : "pointer",
+                    opacity:
+                      !selectedId || !pdfFile || loading ? 0.6 : 1,
+                    transition: "all 0.2s",
                   }}
                 >
                   Parse PDF
                 </button>
                 {pdfStatus && (
-                  <span style={{ fontSize: 12, color: "#059669", fontWeight: 500 }}>
+                  <span
+                    style={{
+                      fontSize: 12,
+                      color: "#059669",
+                      fontWeight: 500,
+                    }}
+                  >
                     {pdfStatus}
                   </span>
                 )}
               </div>
             ) : (
-              <div style={{ 
-                fontSize: 12,
-                color: "#9ca3af",
-                padding: 8,
-                fontStyle: 'italic'
-              }}>
+              <div
+                style={{
+                  fontSize: 12,
+                  color: "#9ca3af",
+                  padding: 8,
+                  fontStyle: "italic",
+                }}
+              >
                 💡 Tip: Upload a PDF to automatically extract and parse content
               </div>
             )}
