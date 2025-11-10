@@ -111,18 +111,30 @@ export async function createQuiz(
   return r.json();
 }
 
+// ✅ Fixed: Added auth token
 export async function listQuizzes(documentId?: string): Promise<Quiz[]> {
+  const token = localStorage.getItem('nm_token');
   const url = documentId
     ? `${API_URL}/api/v1/quizzes?documentId=${documentId}`
     : `${API_URL}/api/v1/quizzes`;
 
-  const r = await fetch(url);
+  const r = await fetch(url, {
+    headers: {
+      ...(token && { 'Authorization': `Bearer ${token}` })
+    }
+  });
   if (!r.ok) throw new Error("Failed to list quizzes");
   return r.json();
 }
 
+// ✅ Fixed: Added auth token
 export async function getQuiz(quizId: string): Promise<Quiz> {
-  const r = await fetch(`${API_URL}/api/v1/quizzes/${quizId}`);
+  const token = localStorage.getItem('nm_token');
+  const r = await fetch(`${API_URL}/api/v1/quizzes/${quizId}`, {
+    headers: {
+      ...(token && { 'Authorization': `Bearer ${token}` })
+    }
+  });
   if (!r.ok) throw new Error("Failed to get quiz");
   return r.json();
 }
@@ -150,8 +162,14 @@ export async function submitQuizAttempt(
   return r.json();
 }
 
+// ✅ Fixed: Added auth token
 export async function getQuizAttempts(quizId: string): Promise<QuizAttempt[]> {
-  const r = await fetch(`${API_URL}/api/v1/quizzes/${quizId}/attempts`);
+  const token = localStorage.getItem('nm_token');
+  const r = await fetch(`${API_URL}/api/v1/quizzes/${quizId}/attempts`, {
+    headers: {
+      ...(token && { 'Authorization': `Bearer ${token}` })
+    }
+  });
   if (!r.ok) throw new Error("Failed to get quiz attempts");
   return r.json();
 }

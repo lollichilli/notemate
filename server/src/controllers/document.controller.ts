@@ -1,8 +1,9 @@
-import { Request, Response } from "express";
+import { Response } from "express";
 import { Types } from "mongoose";
 import { pdf } from "pdf-parse";
 import { Document } from "../models/document.model";
 import { DocBlock } from "../models/docblock.model";
+import { AuthRequest } from "../middleware/auth";
 
 type InsertBlock = {
   documentId: Types.ObjectId;
@@ -85,18 +86,30 @@ function parseTextToBlocks(documentId: Types.ObjectId, raw: string): InsertBlock
   return blocks;
 }
 
-export async function listDocuments(_req: Request, res: Response) {
-  const docs = await Document.find().sort({ createdAt: -1 }).limit(50);
+export async function listDocuments(req: AuthRequest, res: Response) {
+  if (!req.auth?.id) {
+    return res.status(401).json({ error: "Unauthorized" });
+  }
+
+  const docs = await Document.find({ uploaderId: req.auth.id })
+    .sort({ createdAt: -1 })
+    .limit(50);
+  
   res.json(docs);
 }
 
-export async function createDocument(req: Request, res: Response) {
+// ✅ Automatically set uploaderId from authenticated user
+export async function createDocument(req: AuthRequest, res: Response) {
+  if (!req.auth?.id) {
+    return res.status(401).json({ error: "Unauthorized" });
+  }
+
   const { title } = req.body ?? {};
   if (!title) return res.status(400).json({ error: "title is required" });
 
   const doc = await Document.create({
     title,
-    uploaderId: null,
+    uploaderId: new Types.ObjectId(req.auth.id),
     source: {
       fileType: "md",
       originalName: `${title}.md`,
@@ -110,17 +123,27 @@ export async function createDocument(req: Request, res: Response) {
   res.status(201).json(doc);
 }
 
-export async function parseMarkdownIntoBlocks(req: Request, res: Response) {
+// ✅ Verify ownership before parsing
+export async function parseMarkdownIntoBlocks(req: AuthRequest, res: Response) {
+  if (!req.auth?.id) {
+    return res.status(401).json({ error: "Unauthorized" });
+  }
+
   const { id } = req.params;
   const { markdown } = req.body ?? {};
 
-  if (!Types.ObjectId.isValid(id)) return res.status(400).json({ error: "invalid id" });
+  if (!Types.ObjectId.isValid(id)) {
+    return res.status(400).json({ error: "invalid id" });
+  }
+  
   if (typeof markdown !== "string" || !markdown.trim()) {
     return res.status(400).json({ error: "markdown (string) is required" });
   }
 
-  const doc = await Document.findById(id);
-  if (!doc) return res.status(404).json({ error: "document not found" });
+  const doc = await Document.findOne({ _id: id, uploaderId: req.auth.id });
+  if (!doc) {
+    return res.status(404).json({ error: "document not found" });
+  }
 
   const blocks = parseTextToBlocks(doc._id, markdown);
 
@@ -135,18 +158,26 @@ export async function parseMarkdownIntoBlocks(req: Request, res: Response) {
   res.json({ ok: true, blocksCreated: result.length });
 }
 
-export async function parsePdfIntoBlocks(req: Request, res: Response) {
+export async function parsePdfIntoBlocks(req: AuthRequest, res: Response) {
+  if (!req.auth?.id) {
+    return res.status(401).json({ error: "Unauthorized" });
+  }
+
   const { id } = req.params;
 
   if (!Types.ObjectId.isValid(id)) {
     return res.status(400).json({ error: "invalid id" });
   }
 
-  const doc = await Document.findById(id);
-  if (!doc) return res.status(404).json({ error: "document not found" });
+  const doc = await Document.findOne({ _id: id, uploaderId: req.auth.id });
+  if (!doc) {
+    return res.status(404).json({ error: "document not found" });
+  }
 
   const file = (req as any).file as Express.Multer.File | undefined;
-  if (!file) return res.status(400).json({ error: "file is required (field name 'file')" });
+  if (!file) {
+    return res.status(400).json({ error: "file is required (field name 'file')" });
+  }
 
   const isPdf =
     file.mimetype === "application/pdf" ||
@@ -185,20 +216,37 @@ export async function parsePdfIntoBlocks(req: Request, res: Response) {
   }
 }
 
-export async function getDocument(req: Request, res: Response) {
-  const { id } = req.params;
-  if (!Types.ObjectId.isValid(id)) return res.status(400).json({ error: "invalid id" });
+export async function getDocument(req: AuthRequest, res: Response) {
+  if (!req.auth?.id) {
+    return res.status(401).json({ error: "Unauthorized" });
+  }
 
-  const doc = await Document.findById(id);
-  if (!doc) return res.status(404).json({ error: "document not found" });
+  const { id } = req.params;
+  if (!Types.ObjectId.isValid(id)) {
+    return res.status(400).json({ error: "invalid id" });
+  }
+
+  const doc = await Document.findOne({ _id: id, uploaderId: req.auth.id });
+  if (!doc) {
+    return res.status(404).json({ error: "document not found" });
+  }
 
   res.json(doc);
 }
 
-export async function listBlocksByDocument(req: Request, res: Response) {
+export async function listBlocksByDocument(req: AuthRequest, res: Response) {
+  if (!req.auth?.id) {
+    return res.status(401).json({ error: "Unauthorized" });
+  }
+
   const { id } = req.params;
   if (!Types.ObjectId.isValid(id)) {
     return res.status(400).json({ error: "invalid id" });
+  }
+
+  const doc = await Document.findOne({ _id: id, uploaderId: req.auth.id });
+  if (!doc) {
+    return res.status(404).json({ error: "document not found" });
   }
 
   const blocks = await DocBlock.find({ documentId: id })

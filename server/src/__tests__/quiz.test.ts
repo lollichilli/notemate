@@ -5,27 +5,22 @@ import v1Routes from '../routes/v1';
 import { quiz } from '../models/quiz.model';
 import { quizAttempt } from '../models/quizattempt.model';
 import { Document } from '../models/document.model';
+import { createTestUser, authHeader } from './helpers/testHelpers';
 import './setup';
 
 const app = express();
 app.use(express.json());
 app.use('/api/v1', v1Routes);
 
-// Mock authenticate middleware for protected routes with valid ObjectId
-const mockUserId = new Types.ObjectId();
-jest.mock('../middleware/auth', () => ({
-  authenticate: (req: any, res: any, next: any) => {
-    req.auth = { id: mockUserId.toString() };
-    next();
-  }
-}));
-
 describe('Quiz Endpoints', () => {
+  let testUser: { userId: Types.ObjectId; token: string; user: any };
   let testDoc: any;
 
   beforeEach(async () => {
+    testUser = await createTestUser('quiztest@test.com');
     testDoc = await Document.create({
       title: 'Test Doc',
+      uploaderId: testUser.userId,
       source: {
         fileType: 'md',
         originalName: 'test.md',
@@ -58,6 +53,7 @@ describe('Quiz Endpoints', () => {
     it('should create a quiz', async () => {
       const response = await request(app)
         .post('/api/v1/quizzes')
+        .set(authHeader(testUser.token))
         .send({
           ...validQuizData,
           documentId: testDoc._id
@@ -68,11 +64,13 @@ describe('Quiz Endpoints', () => {
       expect(response.body).toHaveProperty('title', 'Test Quiz');
       expect(response.body.questions).toHaveLength(2);
       expect(response.body).toHaveProperty('totalPoints', 2);
+      expect(response.body).toHaveProperty('createdBy', testUser.userId.toString());
     });
 
     it('should calculate total points correctly', async () => {
       const response = await request(app)
         .post('/api/v1/quizzes')
+        .set(authHeader(testUser.token))
         .send({
           title: 'Points Quiz',
           documentId: testDoc._id,
@@ -101,6 +99,7 @@ describe('Quiz Endpoints', () => {
     it('should set default points to 1 if not provided', async () => {
       const response = await request(app)
         .post('/api/v1/quizzes')
+        .set(authHeader(testUser.token))
         .send({
           title: 'Default Points Quiz',
           documentId: testDoc._id,
@@ -120,6 +119,7 @@ describe('Quiz Endpoints', () => {
     it('should reject quiz without title', async () => {
       const response = await request(app)
         .post('/api/v1/quizzes')
+        .set(authHeader(testUser.token))
         .send({
           documentId: testDoc._id,
           questions: []
@@ -132,6 +132,7 @@ describe('Quiz Endpoints', () => {
     it('should reject quiz without documentId', async () => {
       const response = await request(app)
         .post('/api/v1/quizzes')
+        .set(authHeader(testUser.token))
         .send({
           title: 'Test',
           questions: []
@@ -144,6 +145,7 @@ describe('Quiz Endpoints', () => {
     it('should reject quiz without questions', async () => {
       const response = await request(app)
         .post('/api/v1/quizzes')
+        .set(authHeader(testUser.token))
         .send({
           title: 'Test',
           documentId: testDoc._id
@@ -156,6 +158,7 @@ describe('Quiz Endpoints', () => {
     it('should reject invalid documentId', async () => {
       const response = await request(app)
         .post('/api/v1/quizzes')
+        .set(authHeader(testUser.token))
         .send({
           ...validQuizData,
           documentId: 'invalid-id'
@@ -166,10 +169,11 @@ describe('Quiz Endpoints', () => {
     });
 
     it('should reject non-existent document', async () => {
-      const fakeId = '507f1f77bcf86cd799439011';
+      const fakeId = new Types.ObjectId();
 
       const response = await request(app)
         .post('/api/v1/quizzes')
+        .set(authHeader(testUser.token))
         .send({
           ...validQuizData,
           documentId: fakeId
@@ -182,6 +186,7 @@ describe('Quiz Endpoints', () => {
     it('should store optional timeLimit', async () => {
       const response = await request(app)
         .post('/api/v1/quizzes')
+        .set(authHeader(testUser.token))
         .send({
           ...validQuizData,
           documentId: testDoc._id,
@@ -195,6 +200,7 @@ describe('Quiz Endpoints', () => {
     it('should store optional tags', async () => {
       const response = await request(app)
         .post('/api/v1/quizzes')
+        .set(authHeader(testUser.token))
         .send({
           ...validQuizData,
           documentId: testDoc._id,
@@ -204,11 +210,24 @@ describe('Quiz Endpoints', () => {
       expect(response.status).toBe(201);
       expect(response.body.tags).toEqual(['javascript', 'basics']);
     });
+
+    it('should reject request without token', async () => {
+      const response = await request(app)
+        .post('/api/v1/quizzes')
+        .send({
+          ...validQuizData,
+          documentId: testDoc._id
+        });
+
+      expect(response.status).toBe(401);
+    });
   });
 
   describe('GET /api/v1/quizzes', () => {
     it('should return empty array when no quizzes', async () => {
-      const response = await request(app).get('/api/v1/quizzes');
+      const response = await request(app)
+        .get('/api/v1/quizzes')
+        .set(authHeader(testUser.token));
 
       expect(response.status).toBe(200);
       expect(response.body).toEqual([]);
@@ -218,6 +237,7 @@ describe('Quiz Endpoints', () => {
       await quiz.create({
         title: 'Quiz 1',
         documentId: testDoc._id,
+        createdBy: testUser.userId,
         questions: [],
         totalPoints: 0
       });
@@ -225,11 +245,14 @@ describe('Quiz Endpoints', () => {
       await quiz.create({
         title: 'Quiz 2',
         documentId: testDoc._id,
+        createdBy: testUser.userId,
         questions: [],
         totalPoints: 0
       });
 
-      const response = await request(app).get('/api/v1/quizzes');
+      const response = await request(app)
+        .get('/api/v1/quizzes')
+        .set(authHeader(testUser.token));
 
       expect(response.status).toBe(200);
       expect(response.body).toHaveLength(2);
@@ -239,6 +262,7 @@ describe('Quiz Endpoints', () => {
       await quiz.create({
         title: 'First Quiz',
         documentId: testDoc._id,
+        createdBy: testUser.userId,
         questions: [],
         totalPoints: 0
       });
@@ -248,11 +272,14 @@ describe('Quiz Endpoints', () => {
       await quiz.create({
         title: 'Second Quiz',
         documentId: testDoc._id,
+        createdBy: testUser.userId,
         questions: [],
         totalPoints: 0
       });
 
-      const response = await request(app).get('/api/v1/quizzes');
+      const response = await request(app)
+        .get('/api/v1/quizzes')
+        .set(authHeader(testUser.token));
 
       expect(response.status).toBe(200);
       expect(response.body[0].title).toBe('Second Quiz');
@@ -266,6 +293,7 @@ describe('Quiz Endpoints', () => {
           quiz.create({
             title: `Quiz ${i}`,
             documentId: testDoc._id,
+            createdBy: testUser.userId,
             questions: [],
             totalPoints: 0
           })
@@ -273,7 +301,9 @@ describe('Quiz Endpoints', () => {
       }
       await Promise.all(quizPromises);
 
-      const response = await request(app).get('/api/v1/quizzes');
+      const response = await request(app)
+        .get('/api/v1/quizzes')
+        .set(authHeader(testUser.token));
 
       expect(response.status).toBe(200);
       expect(response.body).toHaveLength(50);
@@ -282,6 +312,7 @@ describe('Quiz Endpoints', () => {
     it('should filter by documentId', async () => {
       const otherDoc = await Document.create({
         title: 'Other Doc',
+        uploaderId: testUser.userId,
         source: {
           fileType: 'md',
           originalName: 'other.md',
@@ -293,6 +324,7 @@ describe('Quiz Endpoints', () => {
       await quiz.create({
         title: 'Quiz for testDoc',
         documentId: testDoc._id,
+        createdBy: testUser.userId,
         questions: [],
         totalPoints: 0
       });
@@ -300,16 +332,24 @@ describe('Quiz Endpoints', () => {
       await quiz.create({
         title: 'Quiz for otherDoc',
         documentId: otherDoc._id,
+        createdBy: testUser.userId,
         questions: [],
         totalPoints: 0
       });
 
       const response = await request(app)
-        .get(`/api/v1/quizzes?documentId=${testDoc._id}`);
+        .get(`/api/v1/quizzes?documentId=${testDoc._id}`)
+        .set(authHeader(testUser.token));
 
       expect(response.status).toBe(200);
       expect(response.body).toHaveLength(1);
       expect(response.body[0].title).toBe('Quiz for testDoc');
+    });
+
+    it('should reject request without token', async () => {
+      const response = await request(app).get('/api/v1/quizzes');
+
+      expect(response.status).toBe(401);
     });
   });
 
@@ -318,6 +358,7 @@ describe('Quiz Endpoints', () => {
       const testQuiz = await quiz.create({
         title: 'Test Quiz',
         documentId: testDoc._id,
+        createdBy: testUser.userId,
         questions: [{
           type: 'mcq',
           question: 'What is 2+2?',
@@ -327,7 +368,9 @@ describe('Quiz Endpoints', () => {
         totalPoints: 1
       });
 
-      const response = await request(app).get(`/api/v1/quizzes/${testQuiz._id}`);
+      const response = await request(app)
+        .get(`/api/v1/quizzes/${testQuiz._id}`)
+        .set(authHeader(testUser.token));
 
       expect(response.status).toBe(200);
       expect(response.body).toHaveProperty('_id', testQuiz._id.toString());
@@ -336,19 +379,37 @@ describe('Quiz Endpoints', () => {
     });
 
     it('should reject invalid ID', async () => {
-      const response = await request(app).get('/api/v1/quizzes/invalid-id');
+      const response = await request(app)
+        .get('/api/v1/quizzes/invalid-id')
+        .set(authHeader(testUser.token));
 
       expect(response.status).toBe(400);
       expect(response.body).toHaveProperty('message', 'Invalid quiz ID');
     });
 
     it('should return 404 for non-existent quiz', async () => {
-      const fakeId = '507f1f77bcf86cd799439011';
+      const fakeId = new Types.ObjectId();
 
-      const response = await request(app).get(`/api/v1/quizzes/${fakeId}`);
+      const response = await request(app)
+        .get(`/api/v1/quizzes/${fakeId}`)
+        .set(authHeader(testUser.token));
 
       expect(response.status).toBe(404);
       expect(response.body).toHaveProperty('message', 'Quiz not found');
+    });
+
+    it('should reject request without token', async () => {
+      const testQuiz = await quiz.create({
+        title: 'Test Quiz',
+        documentId: testDoc._id,
+        createdBy: testUser.userId,
+        questions: [],
+        totalPoints: 0
+      });
+
+      const response = await request(app).get(`/api/v1/quizzes/${testQuiz._id}`);
+
+      expect(response.status).toBe(401);
     });
   });
 
@@ -359,6 +420,7 @@ describe('Quiz Endpoints', () => {
       testQuiz = await quiz.create({
         title: 'Test Quiz',
         documentId: testDoc._id,
+        createdBy: testUser.userId,
         questions: [
           {
             type: 'mcq',
@@ -387,11 +449,12 @@ describe('Quiz Endpoints', () => {
     it('should submit quiz attempt and calculate score', async () => {
       const response = await request(app)
         .post(`/api/v1/quizzes/${testQuiz._id}/attempt`)
+        .set(authHeader(testUser.token))
         .send({
           answers: [
-            { questionIndex: 0, userAnswer: 1 }, // Correct MCQ
-            { questionIndex: 1, userAnswer: 'true' }, // Correct T/F
-            { questionIndex: 2, userAnswer: 'Paris' } // Correct short answer
+            { questionIndex: 0, userAnswer: 1 },
+            { questionIndex: 1, userAnswer: 'true' },
+            { questionIndex: 2, userAnswer: 'Paris' }
           ],
           timeSpent: 120
         });
@@ -405,9 +468,10 @@ describe('Quiz Endpoints', () => {
     it('should grade MCQ questions correctly', async () => {
       const response = await request(app)
         .post(`/api/v1/quizzes/${testQuiz._id}/attempt`)
+        .set(authHeader(testUser.token))
         .send({
           answers: [
-            { questionIndex: 0, userAnswer: 1 }, // Correct
+            { questionIndex: 0, userAnswer: 1 },
             { questionIndex: 1, userAnswer: 'false' },
             { questionIndex: 2, userAnswer: 'London' }
           ]
@@ -421,6 +485,7 @@ describe('Quiz Endpoints', () => {
     it('should grade true/false questions correctly', async () => {
       const response = await request(app)
         .post(`/api/v1/quizzes/${testQuiz._id}/attempt`)
+        .set(authHeader(testUser.token))
         .send({
           answers: [
             { questionIndex: 0, userAnswer: 0 },
@@ -437,6 +502,7 @@ describe('Quiz Endpoints', () => {
     it('should grade short-answer questions correctly', async () => {
       const response = await request(app)
         .post(`/api/v1/quizzes/${testQuiz._id}/attempt`)
+        .set(authHeader(testUser.token))
         .send({
           answers: [
             { questionIndex: 0, userAnswer: 0 },
@@ -453,11 +519,12 @@ describe('Quiz Endpoints', () => {
     it('should calculate partial score', async () => {
       const response = await request(app)
         .post(`/api/v1/quizzes/${testQuiz._id}/attempt`)
+        .set(authHeader(testUser.token))
         .send({
           answers: [
-            { questionIndex: 0, userAnswer: 1 }, // Correct (2 points)
-            { questionIndex: 1, userAnswer: 'false' }, // Wrong (0 points)
-            { questionIndex: 2, userAnswer: 'London' } // Wrong (0 points)
+            { questionIndex: 0, userAnswer: 1 },
+            { questionIndex: 1, userAnswer: 'false' },
+            { questionIndex: 2, userAnswer: 'London' }
           ]
         });
 
@@ -469,6 +536,7 @@ describe('Quiz Endpoints', () => {
     it('should calculate zero score for all wrong answers', async () => {
       const response = await request(app)
         .post(`/api/v1/quizzes/${testQuiz._id}/attempt`)
+        .set(authHeader(testUser.token))
         .send({
           answers: [
             { questionIndex: 0, userAnswer: 0 },
@@ -485,6 +553,7 @@ describe('Quiz Endpoints', () => {
     it('should store timeSpent', async () => {
       const response = await request(app)
         .post(`/api/v1/quizzes/${testQuiz._id}/attempt`)
+        .set(authHeader(testUser.token))
         .send({
           answers: [{ questionIndex: 0, userAnswer: 1 }],
           timeSpent: 180
@@ -497,6 +566,7 @@ describe('Quiz Endpoints', () => {
     it('should store completedAt timestamp', async () => {
       const response = await request(app)
         .post(`/api/v1/quizzes/${testQuiz._id}/attempt`)
+        .set(authHeader(testUser.token))
         .send({
           answers: [{ questionIndex: 0, userAnswer: 1 }]
         });
@@ -509,6 +579,7 @@ describe('Quiz Endpoints', () => {
     it('should reject invalid quiz ID', async () => {
       const response = await request(app)
         .post('/api/v1/quizzes/invalid-id/attempt')
+        .set(authHeader(testUser.token))
         .send({
           answers: []
         });
@@ -518,10 +589,11 @@ describe('Quiz Endpoints', () => {
     });
 
     it('should reject non-existent quiz', async () => {
-      const fakeId = '507f1f77bcf86cd799439011';
+      const fakeId = new Types.ObjectId();
 
       const response = await request(app)
         .post(`/api/v1/quizzes/${fakeId}/attempt`)
+        .set(authHeader(testUser.token))
         .send({
           answers: []
         });
@@ -533,6 +605,7 @@ describe('Quiz Endpoints', () => {
     it('should reject missing answers array', async () => {
       const response = await request(app)
         .post(`/api/v1/quizzes/${testQuiz._id}/attempt`)
+        .set(authHeader(testUser.token))
         .send({});
 
       expect(response.status).toBe(400);
@@ -542,6 +615,7 @@ describe('Quiz Endpoints', () => {
     it('should handle out-of-range question index', async () => {
       const response = await request(app)
         .post(`/api/v1/quizzes/${testQuiz._id}/attempt`)
+        .set(authHeader(testUser.token))
         .send({
           answers: [
             { questionIndex: 999, userAnswer: 'test' }
@@ -552,6 +626,16 @@ describe('Quiz Endpoints', () => {
       expect(response.body.answers[0].isCorrect).toBe(false);
       expect(response.body.answers[0].pointsEarned).toBe(0);
     });
+
+    it('should reject request without token', async () => {
+      const response = await request(app)
+        .post(`/api/v1/quizzes/${testQuiz._id}/attempt`)
+        .send({
+          answers: []
+        });
+
+      expect(response.status).toBe(401);
+    });
   });
 
   describe('GET /api/v1/quizzes/:id/attempts', () => {
@@ -561,13 +645,16 @@ describe('Quiz Endpoints', () => {
       testQuiz = await quiz.create({
         title: 'Test Quiz',
         documentId: testDoc._id,
+        createdBy: testUser.userId,
         questions: [],
         totalPoints: 10
       });
     });
 
     it('should return empty array when no attempts', async () => {
-      const response = await request(app).get(`/api/v1/quizzes/${testQuiz._id}/attempts`);
+      const response = await request(app)
+        .get(`/api/v1/quizzes/${testQuiz._id}/attempts`)
+        .set(authHeader(testUser.token));
 
       expect(response.status).toBe(200);
       expect(response.body).toEqual([]);
@@ -576,6 +663,7 @@ describe('Quiz Endpoints', () => {
     it('should return quiz attempts', async () => {
       await quizAttempt.create({
         quizId: testQuiz._id,
+        userId: testUser.userId,
         answers: [],
         score: 8,
         totalPoints: 10,
@@ -585,6 +673,7 @@ describe('Quiz Endpoints', () => {
 
       await quizAttempt.create({
         quizId: testQuiz._id,
+        userId: testUser.userId,
         answers: [],
         score: 6,
         totalPoints: 10,
@@ -592,7 +681,9 @@ describe('Quiz Endpoints', () => {
         completedAt: new Date()
       });
 
-      const response = await request(app).get(`/api/v1/quizzes/${testQuiz._id}/attempts`);
+      const response = await request(app)
+        .get(`/api/v1/quizzes/${testQuiz._id}/attempts`)
+        .set(authHeader(testUser.token));
 
       expect(response.status).toBe(200);
       expect(response.body).toHaveLength(2);
@@ -601,6 +692,7 @@ describe('Quiz Endpoints', () => {
     it('should sort by createdAt desc', async () => {
       await quizAttempt.create({
         quizId: testQuiz._id,
+        userId: testUser.userId,
         answers: [],
         score: 5,
         totalPoints: 10,
@@ -612,6 +704,7 @@ describe('Quiz Endpoints', () => {
 
       await quizAttempt.create({
         quizId: testQuiz._id,
+        userId: testUser.userId,
         answers: [],
         score: 7,
         totalPoints: 10,
@@ -619,10 +712,12 @@ describe('Quiz Endpoints', () => {
         completedAt: new Date()
       });
 
-      const response = await request(app).get(`/api/v1/quizzes/${testQuiz._id}/attempts`);
+      const response = await request(app)
+        .get(`/api/v1/quizzes/${testQuiz._id}/attempts`)
+        .set(authHeader(testUser.token));
 
       expect(response.status).toBe(200);
-      expect(response.body[0].score).toBe(7); // Most recent first
+      expect(response.body[0].score).toBe(7);
       expect(response.body[1].score).toBe(5);
     });
 
@@ -632,6 +727,7 @@ describe('Quiz Endpoints', () => {
         attemptPromises.push(
           quizAttempt.create({
             quizId: testQuiz._id,
+            userId: testUser.userId,
             answers: [],
             score: i,
             totalPoints: 10,
@@ -642,7 +738,9 @@ describe('Quiz Endpoints', () => {
       }
       await Promise.all(attemptPromises);
 
-      const response = await request(app).get(`/api/v1/quizzes/${testQuiz._id}/attempts`);
+      const response = await request(app)
+        .get(`/api/v1/quizzes/${testQuiz._id}/attempts`)
+        .set(authHeader(testUser.token));
 
       expect(response.status).toBe(200);
       expect(response.body).toHaveLength(50);
@@ -652,12 +750,14 @@ describe('Quiz Endpoints', () => {
       const otherQuiz = await quiz.create({
         title: 'Other Quiz',
         documentId: testDoc._id,
+        createdBy: testUser.userId,
         questions: [],
         totalPoints: 10
       });
 
       await quizAttempt.create({
         quizId: testQuiz._id,
+        userId: testUser.userId,
         answers: [],
         score: 8,
         totalPoints: 10,
@@ -667,6 +767,7 @@ describe('Quiz Endpoints', () => {
 
       await quizAttempt.create({
         quizId: otherQuiz._id,
+        userId: testUser.userId,
         answers: [],
         score: 6,
         totalPoints: 10,
@@ -674,7 +775,9 @@ describe('Quiz Endpoints', () => {
         completedAt: new Date()
       });
 
-      const response = await request(app).get(`/api/v1/quizzes/${testQuiz._id}/attempts`);
+      const response = await request(app)
+        .get(`/api/v1/quizzes/${testQuiz._id}/attempts`)
+        .set(authHeader(testUser.token));
 
       expect(response.status).toBe(200);
       expect(response.body).toHaveLength(1);
@@ -682,10 +785,19 @@ describe('Quiz Endpoints', () => {
     });
 
     it('should reject invalid quiz ID', async () => {
-      const response = await request(app).get('/api/v1/quizzes/invalid-id/attempts');
+      const response = await request(app)
+        .get('/api/v1/quizzes/invalid-id/attempts')
+        .set(authHeader(testUser.token));
 
       expect(response.status).toBe(400);
       expect(response.body).toHaveProperty('message', 'Invalid quiz ID');
+    });
+
+    it('should reject request without token', async () => {
+      const response = await request(app)
+        .get(`/api/v1/quizzes/${testQuiz._id}/attempts`);
+
+      expect(response.status).toBe(401);
     });
   });
 
@@ -694,11 +806,14 @@ describe('Quiz Endpoints', () => {
       const testQuiz = await quiz.create({
         title: 'Quiz to Delete',
         documentId: testDoc._id,
+        createdBy: testUser.userId,
         questions: [],
         totalPoints: 0
       });
 
-      const response = await request(app).delete(`/api/v1/quizzes/${testQuiz._id}`);
+      const response = await request(app)
+        .delete(`/api/v1/quizzes/${testQuiz._id}`)
+        .set(authHeader(testUser.token));
 
       expect(response.status).toBe(200);
       expect(response.body).toHaveProperty('message', 'Quiz deleted successfully');
@@ -711,12 +826,14 @@ describe('Quiz Endpoints', () => {
       const testQuiz = await quiz.create({
         title: 'Quiz to Delete',
         documentId: testDoc._id,
+        createdBy: testUser.userId,
         questions: [],
         totalPoints: 10
       });
 
       await quizAttempt.create({
         quizId: testQuiz._id,
+        userId: testUser.userId,
         answers: [],
         score: 8,
         totalPoints: 10,
@@ -724,26 +841,47 @@ describe('Quiz Endpoints', () => {
         completedAt: new Date()
       });
 
-      await request(app).delete(`/api/v1/quizzes/${testQuiz._id}`);
+      await request(app)
+        .delete(`/api/v1/quizzes/${testQuiz._id}`)
+        .set(authHeader(testUser.token));
 
       const attempts = await quizAttempt.find({ quizId: testQuiz._id });
       expect(attempts).toHaveLength(0);
     });
 
     it('should reject invalid ID', async () => {
-      const response = await request(app).delete('/api/v1/quizzes/invalid-id');
+      const response = await request(app)
+        .delete('/api/v1/quizzes/invalid-id')
+        .set(authHeader(testUser.token));
 
       expect(response.status).toBe(400);
       expect(response.body).toHaveProperty('message', 'Invalid quiz ID');
     });
 
     it('should return 404 for non-existent quiz', async () => {
-      const fakeId = '507f1f77bcf86cd799439011';
+      const fakeId = new Types.ObjectId();
 
-      const response = await request(app).delete(`/api/v1/quizzes/${fakeId}`);
+      const response = await request(app)
+        .delete(`/api/v1/quizzes/${fakeId}`)
+        .set(authHeader(testUser.token));
 
       expect(response.status).toBe(404);
       expect(response.body).toHaveProperty('message', 'Quiz not found');
+    });
+
+    it('should reject request without token', async () => {
+      const testQuiz = await quiz.create({
+        title: 'Quiz to Delete',
+        documentId: testDoc._id,
+        createdBy: testUser.userId,
+        questions: [],
+        totalPoints: 0
+      });
+
+      const response = await request(app)
+        .delete(`/api/v1/quizzes/${testQuiz._id}`);
+
+      expect(response.status).toBe(401);
     });
   });
 });

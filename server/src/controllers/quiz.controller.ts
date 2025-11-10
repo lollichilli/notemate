@@ -1,10 +1,10 @@
-import { Request, Response } from "express";
+import { Response } from "express";
 import { Types } from "mongoose";
 import { quiz } from "../models/quiz.model";
 import { quizAttempt } from "../models/quizattempt.model";
 import { Document } from "../models/document.model";
 import { DocBlock } from "../models/docblock.model";
-import { generateQuiz, type QuizQuestion } from "../services/openai.service";
+import { generateQuiz } from "../services/openai.service";
 import { AuthRequest } from "../middleware/auth";
 
 export async function generateQuizFromDocument(
@@ -12,6 +12,10 @@ export async function generateQuizFromDocument(
   res: Response
 ) {
   try {
+    if (!req.auth?.id) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+
     const { documentId } = req.params;
     const { type, count } = req.body;
 
@@ -27,19 +31,17 @@ export async function generateQuizFromDocument(
       return res.status(400).json({ message: 'Invalid document ID' });
     }
 
-    const doc = await Document.findById(documentId);
+    const doc = await Document.findOne({ _id: documentId, uploaderId: req.auth.id });
     if (!doc) {
       return res.status(404).json({ message: 'Document not found' });
     }
 
-    // Get all blocks for this document
     const blocks = await DocBlock.find({ documentId }).sort({ page: 1, blockIndex: 1 });
     
     if (!blocks.length) {
       return res.status(400).json({ message: 'Document has no content blocks' });
     }
 
-    // Combine block text
     const content = blocks.map(b => b.text).join('\n\n');
 
     if (content.trim().length < 100) {
@@ -48,7 +50,6 @@ export async function generateQuizFromDocument(
       });
     }
 
-    // Generate quiz questions with OpenAI
     const questions = await generateQuiz({
       content,
       type,
@@ -66,6 +67,10 @@ export async function generateQuizFromDocument(
 
 export async function createQuiz(req: AuthRequest, res: Response) {
   try {
+    if (!req.auth?.id) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+
     const { title, documentId, questions, timeLimit, tags } = req.body;
 
     if (!title || !documentId || !questions || !Array.isArray(questions)) {
@@ -76,7 +81,7 @@ export async function createQuiz(req: AuthRequest, res: Response) {
       return res.status(400).json({ message: 'Invalid document ID' });
     }
 
-    const doc = await Document.findById(documentId);
+    const doc = await Document.findOne({ _id: documentId, uploaderId: req.auth.id });
     if (!doc) {
       return res.status(404).json({ message: 'Document not found' });
     }
@@ -86,7 +91,7 @@ export async function createQuiz(req: AuthRequest, res: Response) {
     const newQuiz = await quiz.create({
       title,
       documentId,
-      createdBy: req.auth?.id ? new Types.ObjectId(req.auth.id) : null,
+      createdBy: new Types.ObjectId(req.auth.id),
       questions,
       totalPoints,
       timeLimit: timeLimit || null,
@@ -100,11 +105,16 @@ export async function createQuiz(req: AuthRequest, res: Response) {
   }
 }
 
-export async function listQuizzes(req: Request, res: Response) {
+export async function listQuizzes(req: AuthRequest, res: Response) {
   try {
+    if (!req.auth?.id) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+
     const { documentId } = req.query;
 
-    const filter: any = {};
+    const filter: any = { createdBy: req.auth.id };
+    
     if (documentId && Types.ObjectId.isValid(documentId as string)) {
       filter.documentId = documentId;
     }
@@ -120,15 +130,19 @@ export async function listQuizzes(req: Request, res: Response) {
   }
 }
 
-export async function getQuiz(req: Request, res: Response) {
+export async function getQuiz(req: AuthRequest, res: Response) {
   try {
+    if (!req.auth?.id) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+
     const { id } = req.params;
 
     if (!Types.ObjectId.isValid(id)) {
       return res.status(400).json({ message: 'Invalid quiz ID' });
     }
 
-    const foundQuiz = await quiz.findById(id);
+    const foundQuiz = await quiz.findOne({ _id: id, createdBy: req.auth.id });
     if (!foundQuiz) {
       return res.status(404).json({ message: 'Quiz not found' });
     }
@@ -142,6 +156,10 @@ export async function getQuiz(req: Request, res: Response) {
 
 export async function submitQuizAttempt(req: AuthRequest, res: Response) {
   try {
+    if (!req.auth?.id) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+
     const { id: quizId } = req.params;
     const { answers, timeSpent } = req.body;
 
@@ -153,12 +171,11 @@ export async function submitQuizAttempt(req: AuthRequest, res: Response) {
       return res.status(400).json({ message: 'Answers array is required' });
     }
 
-    const foundQuiz = await quiz.findById(quizId);
+    const foundQuiz = await quiz.findOne({ _id: quizId, createdBy: req.auth.id });
     if (!foundQuiz) {
       return res.status(404).json({ message: 'Quiz not found' });
     }
 
-    // Grade the quiz
     let score = 0;
     const gradedAnswers = answers.map((answer) => {
       const question = foundQuiz.questions[answer.questionIndex];
@@ -178,7 +195,6 @@ export async function submitQuizAttempt(req: AuthRequest, res: Response) {
       } else if (question.type === 'true-false') {
         isCorrect = String(answer.userAnswer).toLowerCase() === String(question.correctAnswer).toLowerCase();
       } else if (question.type === 'short-answer') {
-        // Simple case-insensitive comparison for short answer
         const userAns = String(answer.userAnswer).toLowerCase().trim();
         const correctAns = String(question.correctAnswer).toLowerCase().trim();
         isCorrect = userAns === correctAns;
@@ -199,7 +215,7 @@ export async function submitQuizAttempt(req: AuthRequest, res: Response) {
 
     const newAttempt = await quizAttempt.create({
       quizId,
-      userId: req.auth?.id ? new Types.ObjectId(req.auth.id) : null,
+      userId: new Types.ObjectId(req.auth.id),
       answers: gradedAnswers,
       score,
       totalPoints: foundQuiz.totalPoints,
@@ -215,12 +231,21 @@ export async function submitQuizAttempt(req: AuthRequest, res: Response) {
   }
 }
 
-export async function getQuizAttempts(req: Request, res: Response) {
+export async function getQuizAttempts(req: AuthRequest, res: Response) {
   try {
+    if (!req.auth?.id) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+
     const { id: quizId } = req.params;
 
     if (!Types.ObjectId.isValid(quizId)) {
       return res.status(400).json({ message: 'Invalid quiz ID' });
+    }
+
+    const foundQuiz = await quiz.findOne({ _id: quizId, createdBy: req.auth.id });
+    if (!foundQuiz) {
+      return res.status(404).json({ message: 'Quiz not found' });
     }
 
     const attempts = await quizAttempt.find({ quizId })
@@ -234,20 +259,27 @@ export async function getQuizAttempts(req: Request, res: Response) {
   }
 }
 
-export async function deleteQuiz(req: Request, res: Response) {
+export async function deleteQuiz(req: AuthRequest, res: Response) {
   try {
+    if (!req.auth?.id) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+
     const { id } = req.params;
 
     if (!Types.ObjectId.isValid(id)) {
       return res.status(400).json({ message: 'Invalid quiz ID' });
     }
 
-    const deletedQuiz = await quiz.findByIdAndDelete(id);
+    const deletedQuiz = await quiz.findOneAndDelete({ 
+      _id: id, 
+      createdBy: req.auth.id 
+    });
+    
     if (!deletedQuiz) {
       return res.status(404).json({ message: 'Quiz not found' });
     }
 
-    // Optionally delete associated attempts
     await quizAttempt.deleteMany({ quizId: id });
 
     res.json({ message: 'Quiz deleted successfully' });

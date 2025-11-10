@@ -1,10 +1,12 @@
 import request from 'supertest';
 import express from 'express';
+import { Types } from 'mongoose';
 import v1Routes from '../routes/v1';
 import { Deck } from '../models/deck.model';
 import { Flashcard } from '../models/flashcard.model';
 import { DocBlock } from '../models/docblock.model';
 import { Document } from '../models/document.model';
+import { createTestUser, authHeader } from './helpers/testHelpers';
 import './setup';
 
 const app = express();
@@ -12,16 +14,23 @@ app.use(express.json());
 app.use('/api/v1', v1Routes);
 
 describe('Flashcard Endpoints', () => {
+  let testUser: { userId: Types.ObjectId; token: string; user: any };
   let testDeck: any;
 
   beforeEach(async () => {
-    testDeck = await Deck.create({ name: 'Test Deck', visibility: 'private' });
+    testUser = await createTestUser('flashtest@test.com');
+    testDeck = await Deck.create({ 
+      name: 'Test Deck', 
+      ownerId: testUser.userId,
+      visibility: 'private' 
+    });
   });
 
   describe('POST /api/v1/decks/:id/cards', () => {
     it('should create a basic flashcard', async () => {
       const response = await request(app)
         .post(`/api/v1/decks/${testDeck._id}/cards`)
+        .set(authHeader(testUser.token))
         .send({
           type: 'basic',
           prompt: 'What is React?',
@@ -39,6 +48,7 @@ describe('Flashcard Endpoints', () => {
     it('should create card with default type basic', async () => {
       const response = await request(app)
         .post(`/api/v1/decks/${testDeck._id}/cards`)
+        .set(authHeader(testUser.token))
         .send({
           prompt: 'Test Question',
           answer: 'Test Answer'
@@ -51,6 +61,7 @@ describe('Flashcard Endpoints', () => {
     it('should initialize leitner system with box 1', async () => {
       const response = await request(app)
         .post(`/api/v1/decks/${testDeck._id}/cards`)
+        .set(authHeader(testUser.token))
         .send({
           prompt: 'Test',
           answer: 'Answer'
@@ -64,6 +75,7 @@ describe('Flashcard Endpoints', () => {
     it('should initialize stats with zeros', async () => {
       const response = await request(app)
         .post(`/api/v1/decks/${testDeck._id}/cards`)
+        .set(authHeader(testUser.token))
         .send({
           prompt: 'Test',
           answer: 'Answer'
@@ -77,6 +89,7 @@ describe('Flashcard Endpoints', () => {
     it('should reject card without prompt', async () => {
       const response = await request(app)
         .post(`/api/v1/decks/${testDeck._id}/cards`)
+        .set(authHeader(testUser.token))
         .send({
           answer: 'Test Answer'
         });
@@ -88,6 +101,7 @@ describe('Flashcard Endpoints', () => {
     it('should reject card without answer', async () => {
       const response = await request(app)
         .post(`/api/v1/decks/${testDeck._id}/cards`)
+        .set(authHeader(testUser.token))
         .send({
           prompt: 'Test Question'
         });
@@ -99,6 +113,7 @@ describe('Flashcard Endpoints', () => {
     it('should reject invalid deck ID', async () => {
       const response = await request(app)
         .post('/api/v1/decks/invalid-id/cards')
+        .set(authHeader(testUser.token))
         .send({
           prompt: 'Test',
           answer: 'Answer'
@@ -111,6 +126,7 @@ describe('Flashcard Endpoints', () => {
     it('should create card with block reference', async () => {
       const doc = await Document.create({
         title: 'Test Doc',
+        uploaderId: testUser.userId,
         source: {
           fileType: 'md',
           originalName: 'test.md',
@@ -128,6 +144,7 @@ describe('Flashcard Endpoints', () => {
 
       const response = await request(app)
         .post(`/api/v1/decks/${testDeck._id}/cards`)
+        .set(authHeader(testUser.token))
         .send({
           prompt: 'Test',
           answer: 'Answer',
@@ -144,6 +161,7 @@ describe('Flashcard Endpoints', () => {
     it('should reject invalid block ID', async () => {
       const response = await request(app)
         .post(`/api/v1/decks/${testDeck._id}/cards`)
+        .set(authHeader(testUser.token))
         .send({
           prompt: 'Test',
           answer: 'Answer',
@@ -155,24 +173,35 @@ describe('Flashcard Endpoints', () => {
     });
 
     it('should reject non-existent block', async () => {
-      const fakeBlockId = '507f1f77bcf86cd799439011';
+      const fakeBlockId = new Types.ObjectId();
 
       const response = await request(app)
         .post(`/api/v1/decks/${testDeck._id}/cards`)
+        .set(authHeader(testUser.token))
         .send({
           prompt: 'Test',
           answer: 'Answer',
-          blockId: fakeBlockId
+          blockId: fakeBlockId.toString()
         });
 
       expect(response.status).toBe(404);
       expect(response.body).toHaveProperty('error', 'block not found');
     });
+
+    it('should reject request without token', async () => {
+      const response = await request(app)
+        .post(`/api/v1/decks/${testDeck._id}/cards`)
+        .send({
+          prompt: 'Test',
+          answer: 'Answer'
+        });
+
+      expect(response.status).toBe(401);
+    });
   });
 
   describe('GET /api/v1/decks/:id/due', () => {
     it('should return empty array when no due cards', async () => {
-      // Create a card due in the future
       const futureDate = new Date();
       futureDate.setDate(futureDate.getDate() + 7);
 
@@ -185,7 +214,9 @@ describe('Flashcard Endpoints', () => {
         stats: { correct: 0, incorrect: 0 }
       });
 
-      const response = await request(app).get(`/api/v1/decks/${testDeck._id}/due`);
+      const response = await request(app)
+        .get(`/api/v1/decks/${testDeck._id}/due`)
+        .set(authHeader(testUser.token));
 
       expect(response.status).toBe(200);
       expect(response.body).toEqual([]);
@@ -204,7 +235,9 @@ describe('Flashcard Endpoints', () => {
         stats: { correct: 0, incorrect: 0 }
       });
 
-      const response = await request(app).get(`/api/v1/decks/${testDeck._id}/due`);
+      const response = await request(app)
+        .get(`/api/v1/decks/${testDeck._id}/due`)
+        .set(authHeader(testUser.token));
 
       expect(response.status).toBe(200);
       expect(response.body).toHaveLength(1);
@@ -221,7 +254,9 @@ describe('Flashcard Endpoints', () => {
         stats: { correct: 0, incorrect: 0 }
       });
 
-      const response = await request(app).get(`/api/v1/decks/${testDeck._id}/due`);
+      const response = await request(app)
+        .get(`/api/v1/decks/${testDeck._id}/due`)
+        .set(authHeader(testUser.token));
 
       expect(response.status).toBe(200);
       expect(response.body).toHaveLength(1);
@@ -252,10 +287,12 @@ describe('Flashcard Endpoints', () => {
         stats: { correct: 0, incorrect: 0 }
       });
 
-      const response = await request(app).get(`/api/v1/decks/${testDeck._id}/due`);
+      const response = await request(app)
+        .get(`/api/v1/decks/${testDeck._id}/due`)
+        .set(authHeader(testUser.token));
 
       expect(response.status).toBe(200);
-      expect(response.body[0].prompt).toBe('Card 2'); // Oldest due first
+      expect(response.body[0].prompt).toBe('Card 2');
       expect(response.body[1].prompt).toBe('Card 1');
     });
 
@@ -263,7 +300,6 @@ describe('Flashcard Endpoints', () => {
       const pastDate = new Date();
       pastDate.setDate(pastDate.getDate() - 1);
 
-      // Create 150 due cards
       const cardPromises = [];
       for (let i = 0; i < 150; i++) {
         cardPromises.push(
@@ -279,21 +315,29 @@ describe('Flashcard Endpoints', () => {
       }
       await Promise.all(cardPromises);
 
-      const response = await request(app).get(`/api/v1/decks/${testDeck._id}/due`);
+      const response = await request(app)
+        .get(`/api/v1/decks/${testDeck._id}/due`)
+        .set(authHeader(testUser.token));
 
       expect(response.status).toBe(200);
       expect(response.body).toHaveLength(100);
     });
 
     it('should reject invalid deck ID', async () => {
-      const response = await request(app).get('/api/v1/decks/invalid-id/due');
+      const response = await request(app)
+        .get('/api/v1/decks/invalid-id/due')
+        .set(authHeader(testUser.token));
 
       expect(response.status).toBe(400);
       expect(response.body).toHaveProperty('error', 'invalid deck id');
     });
 
     it('should only return cards for specified deck', async () => {
-      const otherDeck = await Deck.create({ name: 'Other Deck', visibility: 'private' });
+      const otherDeck = await Deck.create({ 
+        name: 'Other Deck', 
+        ownerId: testUser.userId,
+        visibility: 'private' 
+      });
 
       await Flashcard.create({
         deckId: testDeck._id,
@@ -313,11 +357,20 @@ describe('Flashcard Endpoints', () => {
         stats: { correct: 0, incorrect: 0 }
       });
 
-      const response = await request(app).get(`/api/v1/decks/${testDeck._id}/due`);
+      const response = await request(app)
+        .get(`/api/v1/decks/${testDeck._id}/due`)
+        .set(authHeader(testUser.token));
 
       expect(response.status).toBe(200);
       expect(response.body).toHaveLength(1);
       expect(response.body[0].prompt).toBe('Test Deck Card');
+    });
+
+    it('should reject request without token', async () => {
+      const response = await request(app)
+        .get(`/api/v1/decks/${testDeck._id}/due`);
+
+      expect(response.status).toBe(401);
     });
   });
 
@@ -336,14 +389,14 @@ describe('Flashcard Endpoints', () => {
     });
 
     it('should handle "again" result - reset to box 1', async () => {
-      // First review it correctly to get to box 2
       await request(app)
         .post(`/api/v1/cards/${testCard._id}/review`)
+        .set(authHeader(testUser.token))
         .send({ result: 'gotit' });
 
-      // Now review again
       const response = await request(app)
         .post(`/api/v1/cards/${testCard._id}/review`)
+        .set(authHeader(testUser.token))
         .send({ result: 'again' });
 
       expect(response.status).toBe(200);
@@ -354,6 +407,7 @@ describe('Flashcard Endpoints', () => {
     it('should increment incorrect count on "again"', async () => {
       const response = await request(app)
         .post(`/api/v1/cards/${testCard._id}/review`)
+        .set(authHeader(testUser.token))
         .send({ result: 'again' });
 
       expect(response.status).toBe(200);
@@ -364,6 +418,7 @@ describe('Flashcard Endpoints', () => {
     it('should handle "gotit" result - increment box', async () => {
       const response = await request(app)
         .post(`/api/v1/cards/${testCard._id}/review`)
+        .set(authHeader(testUser.token))
         .send({ result: 'gotit' });
 
       expect(response.status).toBe(200);
@@ -374,6 +429,7 @@ describe('Flashcard Endpoints', () => {
     it('should increment correct count on "gotit"', async () => {
       const response = await request(app)
         .post(`/api/v1/cards/${testCard._id}/review`)
+        .set(authHeader(testUser.token))
         .send({ result: 'gotit' });
 
       expect(response.status).toBe(200);
@@ -382,17 +438,17 @@ describe('Flashcard Endpoints', () => {
     });
 
     it('should not exceed box 5', async () => {
-      // Review 5 times to reach box 5
       let cardId = testCard._id;
       for (let i = 0; i < 5; i++) {
         await request(app)
           .post(`/api/v1/cards/${cardId}/review`)
+          .set(authHeader(testUser.token))
           .send({ result: 'gotit' });
       }
 
-      // One more time should stay at box 5
       const response = await request(app)
         .post(`/api/v1/cards/${cardId}/review`)
+        .set(authHeader(testUser.token))
         .send({ result: 'gotit' });
 
       expect(response.status).toBe(200);
@@ -404,24 +460,24 @@ describe('Flashcard Endpoints', () => {
 
       const response = await request(app)
         .post(`/api/v1/cards/${testCard._id}/review`)
+        .set(authHeader(testUser.token))
         .send({ result: 'gotit' });
 
       const nextReview = new Date(response.body.card.leitner.nextReviewAt);
       const daysDiff = Math.floor((nextReview.getTime() - beforeReview.getTime()) / (1000 * 60 * 60 * 24));
 
-      // Box 2 should schedule 2 days ahead
       expect(daysDiff).toBeGreaterThanOrEqual(1);
       expect(daysDiff).toBeLessThanOrEqual(2);
     });
 
     it('should follow Leitner schedule (1,2,4,8,16 days)', async () => {
-      // Test box 1 (1 day)
       await Flashcard.findByIdAndUpdate(testCard._id, {
         'leitner.box': 1
       });
 
       let response = await request(app)
         .post(`/api/v1/cards/${testCard._id}/review`)
+        .set(authHeader(testUser.token))
         .send({ result: 'again' });
 
       let nextReview = new Date(response.body.card.leitner.nextReviewAt);
@@ -434,6 +490,7 @@ describe('Flashcard Endpoints', () => {
     it('should reject invalid card ID', async () => {
       const response = await request(app)
         .post('/api/v1/cards/invalid-id/review')
+        .set(authHeader(testUser.token))
         .send({ result: 'gotit' });
 
       expect(response.status).toBe(400);
@@ -441,10 +498,11 @@ describe('Flashcard Endpoints', () => {
     });
 
     it('should reject non-existent card', async () => {
-      const fakeId = '507f1f77bcf86cd799439011';
+      const fakeId = new Types.ObjectId();
 
       const response = await request(app)
         .post(`/api/v1/cards/${fakeId}/review`)
+        .set(authHeader(testUser.token))
         .send({ result: 'gotit' });
 
       expect(response.status).toBe(404);
@@ -454,6 +512,7 @@ describe('Flashcard Endpoints', () => {
     it('should reject invalid result value', async () => {
       const response = await request(app)
         .post(`/api/v1/cards/${testCard._id}/review`)
+        .set(authHeader(testUser.token))
         .send({ result: 'invalid' });
 
       expect(response.status).toBe(400);
@@ -463,6 +522,7 @@ describe('Flashcard Endpoints', () => {
     it('should reject missing result', async () => {
       const response = await request(app)
         .post(`/api/v1/cards/${testCard._id}/review`)
+        .set(authHeader(testUser.token))
         .send({});
 
       expect(response.status).toBe(400);
@@ -472,11 +532,20 @@ describe('Flashcard Endpoints', () => {
     it('should persist review to database', async () => {
       await request(app)
         .post(`/api/v1/cards/${testCard._id}/review`)
+        .set(authHeader(testUser.token))
         .send({ result: 'gotit' });
 
       const card = await Flashcard.findById(testCard._id);
       expect(card?.leitner.box).toBe(2);
       expect(card?.stats.correct).toBe(1);
+    });
+
+    it('should reject request without token', async () => {
+      const response = await request(app)
+        .post(`/api/v1/cards/${testCard._id}/review`)
+        .send({ result: 'gotit' });
+
+      expect(response.status).toBe(401);
     });
   });
 });

@@ -1,8 +1,10 @@
 import request from 'supertest';
 import express from 'express';
+import { Types } from 'mongoose';
 import v1Routes from '../routes/v1';
 import { Document } from '../models/document.model';
 import { DocBlock } from '../models/docblock.model';
+import { createTestUser, authHeader } from './helpers/testHelpers';
 import './setup';
 
 const app = express();
@@ -10,9 +12,17 @@ app.use(express.json());
 app.use('/api/v1', v1Routes);
 
 describe('Document Endpoints', () => {
+  let testUser: { userId: Types.ObjectId; token: string; user: any };
+
+  beforeEach(async () => {
+    testUser = await createTestUser('doctest@test.com');
+  });
+
   describe('GET /api/v1/documents', () => {
     it('should return empty array when no documents', async () => {
-      const response = await request(app).get('/api/v1/documents');
+      const response = await request(app)
+        .get('/api/v1/documents')
+        .set(authHeader(testUser.token));
 
       expect(response.status).toBe(200);
       expect(response.body).toEqual([]);
@@ -21,6 +31,7 @@ describe('Document Endpoints', () => {
     it('should return list of documents', async () => {
       await Document.create({
         title: 'Doc 1',
+        uploaderId: testUser.userId,
         source: {
           fileType: 'md',
           originalName: 'doc1.md',
@@ -31,6 +42,7 @@ describe('Document Endpoints', () => {
 
       await Document.create({
         title: 'Doc 2',
+        uploaderId: testUser.userId,
         source: {
           fileType: 'pdf',
           originalName: 'doc2.pdf',
@@ -39,7 +51,9 @@ describe('Document Endpoints', () => {
         }
       });
 
-      const response = await request(app).get('/api/v1/documents');
+      const response = await request(app)
+        .get('/api/v1/documents')
+        .set(authHeader(testUser.token));
 
       expect(response.status).toBe(200);
       expect(response.body).toHaveLength(2);
@@ -50,6 +64,7 @@ describe('Document Endpoints', () => {
     it('should return documents sorted by createdAt desc', async () => {
       await Document.create({
         title: 'First Doc',
+        uploaderId: testUser.userId,
         source: {
           fileType: 'md',
           originalName: 'first.md',
@@ -62,6 +77,7 @@ describe('Document Endpoints', () => {
 
       await Document.create({
         title: 'Second Doc',
+        uploaderId: testUser.userId,
         source: {
           fileType: 'md',
           originalName: 'second.md',
@@ -70,10 +86,12 @@ describe('Document Endpoints', () => {
         }
       });
 
-      const response = await request(app).get('/api/v1/documents');
+      const response = await request(app)
+        .get('/api/v1/documents')
+        .set(authHeader(testUser.token));
 
       expect(response.status).toBe(200);
-      expect(response.body[0].title).toBe('Second Doc'); // Most recent first
+      expect(response.body[0].title).toBe('Second Doc');
       expect(response.body[1].title).toBe('First Doc');
     });
 
@@ -83,6 +101,7 @@ describe('Document Endpoints', () => {
         docPromises.push(
           Document.create({
             title: `Doc ${i}`,
+            uploaderId: testUser.userId,
             source: {
               fileType: 'md',
               originalName: `doc${i}.md`,
@@ -94,10 +113,18 @@ describe('Document Endpoints', () => {
       }
       await Promise.all(docPromises);
 
-      const response = await request(app).get('/api/v1/documents');
+      const response = await request(app)
+        .get('/api/v1/documents')
+        .set(authHeader(testUser.token));
 
       expect(response.status).toBe(200);
       expect(response.body).toHaveLength(50);
+    });
+
+    it('should reject request without token', async () => {
+      const response = await request(app).get('/api/v1/documents');
+
+      expect(response.status).toBe(401);
     });
   });
 
@@ -105,6 +132,7 @@ describe('Document Endpoints', () => {
     it('should create a new document', async () => {
       const response = await request(app)
         .post('/api/v1/documents')
+        .set(authHeader(testUser.token))
         .send({ title: 'My Test Document' });
 
       expect(response.status).toBe(201);
@@ -112,11 +140,13 @@ describe('Document Endpoints', () => {
       expect(response.body).toHaveProperty('title', 'My Test Document');
       expect(response.body.source).toHaveProperty('fileType', 'md');
       expect(response.body.parse).toHaveProperty('status', 'pending');
+      expect(response.body).toHaveProperty('uploaderId', testUser.userId.toString());
     });
 
     it('should reject document without title', async () => {
       const response = await request(app)
         .post('/api/v1/documents')
+        .set(authHeader(testUser.token))
         .send({});
 
       expect(response.status).toBe(400);
@@ -126,6 +156,7 @@ describe('Document Endpoints', () => {
     it('should reject document with empty title', async () => {
       const response = await request(app)
         .post('/api/v1/documents')
+        .set(authHeader(testUser.token))
         .send({ title: '' });
 
       expect(response.status).toBe(400);
@@ -135,18 +166,20 @@ describe('Document Endpoints', () => {
     it('should set default values', async () => {
       const response = await request(app)
         .post('/api/v1/documents')
+        .set(authHeader(testUser.token))
         .send({ title: 'Test Doc' });
 
       expect(response.status).toBe(201);
       expect(response.body.source.fileType).toBe('md');
       expect(response.body.source.sizeBytes).toBe(0);
       expect(response.body.tags).toEqual([]);
-      expect(response.body.uploaderId).toBeNull();
+      expect(response.body.uploaderId).toBe(testUser.userId.toString());
     });
 
     it('should generate storage key with timestamp', async () => {
       const response = await request(app)
         .post('/api/v1/documents')
+        .set(authHeader(testUser.token))
         .send({ title: 'Test Doc' });
 
       expect(response.status).toBe(201);
@@ -156,6 +189,7 @@ describe('Document Endpoints', () => {
     it('should persist document to database', async () => {
       const response = await request(app)
         .post('/api/v1/documents')
+        .set(authHeader(testUser.token))
         .send({ title: 'Persistent Doc' });
 
       expect(response.status).toBe(201);
@@ -163,6 +197,15 @@ describe('Document Endpoints', () => {
       const doc = await Document.findById(response.body._id);
       expect(doc).toBeTruthy();
       expect(doc?.title).toBe('Persistent Doc');
+      expect(doc?.uploaderId.toString()).toBe(testUser.userId.toString());
+    });
+
+    it('should reject request without token', async () => {
+      const response = await request(app)
+        .post('/api/v1/documents')
+        .send({ title: 'Test Doc' });
+
+      expect(response.status).toBe(401);
     });
   });
 
@@ -172,6 +215,7 @@ describe('Document Endpoints', () => {
     beforeEach(async () => {
       testDoc = await Document.create({
         title: 'Test Doc',
+        uploaderId: testUser.userId,
         source: {
           fileType: 'md',
           originalName: 'test.md',
@@ -186,6 +230,7 @@ describe('Document Endpoints', () => {
 
       const response = await request(app)
         .post(`/api/v1/documents/${testDoc._id}/parse-md`)
+        .set(authHeader(testUser.token))
         .send({ markdown });
 
       expect(response.status).toBe(200);
@@ -198,6 +243,7 @@ describe('Document Endpoints', () => {
 
       await request(app)
         .post(`/api/v1/documents/${testDoc._id}/parse-md`)
+        .set(authHeader(testUser.token))
         .send({ markdown });
 
       const blocks = await DocBlock.find({ documentId: testDoc._id });
@@ -213,6 +259,7 @@ describe('Document Endpoints', () => {
 
       await request(app)
         .post(`/api/v1/documents/${testDoc._id}/parse-md`)
+        .set(authHeader(testUser.token))
         .send({ markdown });
 
       const blocks = await DocBlock.find({ documentId: testDoc._id });
@@ -226,6 +273,7 @@ describe('Document Endpoints', () => {
 
       await request(app)
         .post(`/api/v1/documents/${testDoc._id}/parse-md`)
+        .set(authHeader(testUser.token))
         .send({ markdown });
 
       const blocks = await DocBlock.find({ documentId: testDoc._id });
@@ -240,6 +288,7 @@ describe('Document Endpoints', () => {
 
       await request(app)
         .post(`/api/v1/documents/${testDoc._id}/parse-md`)
+        .set(authHeader(testUser.token))
         .send({ markdown });
 
       const blocks = await DocBlock.find({ documentId: testDoc._id });
@@ -254,6 +303,7 @@ describe('Document Endpoints', () => {
 
       await request(app)
         .post(`/api/v1/documents/${testDoc._id}/parse-md`)
+        .set(authHeader(testUser.token))
         .send({ markdown });
 
       const doc = await Document.findById(testDoc._id);
@@ -266,6 +316,7 @@ describe('Document Endpoints', () => {
 
       await request(app)
         .post(`/api/v1/documents/${testDoc._id}/parse-md`)
+        .set(authHeader(testUser.token))
         .send({ markdown });
 
       const doc = await Document.findById(testDoc._id);
@@ -277,6 +328,7 @@ describe('Document Endpoints', () => {
 
       await request(app)
         .post(`/api/v1/documents/${testDoc._id}/parse-md`)
+        .set(authHeader(testUser.token))
         .send({ markdown });
 
       const doc = await Document.findById(testDoc._id);
@@ -284,7 +336,6 @@ describe('Document Endpoints', () => {
     });
 
     it('should delete existing blocks before creating new ones', async () => {
-      // Create initial blocks
       await DocBlock.create({
         documentId: testDoc._id,
         page: 1,
@@ -297,6 +348,7 @@ describe('Document Endpoints', () => {
 
       await request(app)
         .post(`/api/v1/documents/${testDoc._id}/parse-md`)
+        .set(authHeader(testUser.token))
         .send({ markdown });
 
       const blocks = await DocBlock.find({ documentId: testDoc._id });
@@ -307,6 +359,7 @@ describe('Document Endpoints', () => {
     it('should reject invalid document ID', async () => {
       const response = await request(app)
         .post('/api/v1/documents/invalid-id/parse-md')
+        .set(authHeader(testUser.token))
         .send({ markdown: '# Test' });
 
       expect(response.status).toBe(400);
@@ -314,10 +367,11 @@ describe('Document Endpoints', () => {
     });
 
     it('should reject non-existent document', async () => {
-      const fakeId = '507f1f77bcf86cd799439011';
+      const fakeId = new Types.ObjectId();
 
       const response = await request(app)
         .post(`/api/v1/documents/${fakeId}/parse-md`)
+        .set(authHeader(testUser.token))
         .send({ markdown: '# Test' });
 
       expect(response.status).toBe(404);
@@ -327,6 +381,7 @@ describe('Document Endpoints', () => {
     it('should reject missing markdown', async () => {
       const response = await request(app)
         .post(`/api/v1/documents/${testDoc._id}/parse-md`)
+        .set(authHeader(testUser.token))
         .send({});
 
       expect(response.status).toBe(400);
@@ -336,6 +391,7 @@ describe('Document Endpoints', () => {
     it('should reject empty markdown', async () => {
       const response = await request(app)
         .post(`/api/v1/documents/${testDoc._id}/parse-md`)
+        .set(authHeader(testUser.token))
         .send({ markdown: '   ' });
 
       expect(response.status).toBe(400);
@@ -345,10 +401,19 @@ describe('Document Endpoints', () => {
     it('should reject whitespace-only markdown', async () => {
       const response = await request(app)
         .post(`/api/v1/documents/${testDoc._id}/parse-md`)
+        .set(authHeader(testUser.token))
         .send({ markdown: '\n\n\n' });
 
       expect(response.status).toBe(400);
       expect(response.body).toHaveProperty('error', 'markdown (string) is required');
+    });
+
+    it('should reject request without token', async () => {
+      const response = await request(app)
+        .post(`/api/v1/documents/${testDoc._id}/parse-md`)
+        .send({ markdown: '# Test' });
+
+      expect(response.status).toBe(401);
     });
   });
 
@@ -356,6 +421,48 @@ describe('Document Endpoints', () => {
     it('should return document by ID', async () => {
       const doc = await Document.create({
         title: 'Test Doc',
+        uploaderId: testUser.userId,
+        source: {
+          fileType: 'md',
+          originalName: 'test.md',
+          storageKey: 'key1',
+          sizeBytes: 100
+        }
+      });
+
+      const response = await request(app)
+        .get(`/api/v1/documents/${doc._id}`)
+        .set(authHeader(testUser.token));
+
+      expect(response.status).toBe(200);
+      expect(response.body).toHaveProperty('_id', doc._id.toString());
+      expect(response.body).toHaveProperty('title', 'Test Doc');
+    });
+
+    it('should reject invalid ID', async () => {
+      const response = await request(app)
+        .get('/api/v1/documents/invalid-id')
+        .set(authHeader(testUser.token));
+
+      expect(response.status).toBe(400);
+      expect(response.body).toHaveProperty('error', 'invalid id');
+    });
+
+    it('should return 404 for non-existent document', async () => {
+      const fakeId = new Types.ObjectId();
+
+      const response = await request(app)
+        .get(`/api/v1/documents/${fakeId}`)
+        .set(authHeader(testUser.token));
+
+      expect(response.status).toBe(404);
+      expect(response.body).toHaveProperty('error', 'document not found');
+    });
+
+    it('should reject request without token', async () => {
+      const doc = await Document.create({
+        title: 'Test Doc',
+        uploaderId: testUser.userId,
         source: {
           fileType: 'md',
           originalName: 'test.md',
@@ -366,25 +473,7 @@ describe('Document Endpoints', () => {
 
       const response = await request(app).get(`/api/v1/documents/${doc._id}`);
 
-      expect(response.status).toBe(200);
-      expect(response.body).toHaveProperty('_id', doc._id.toString());
-      expect(response.body).toHaveProperty('title', 'Test Doc');
-    });
-
-    it('should reject invalid ID', async () => {
-      const response = await request(app).get('/api/v1/documents/invalid-id');
-
-      expect(response.status).toBe(400);
-      expect(response.body).toHaveProperty('error', 'invalid id');
-    });
-
-    it('should return 404 for non-existent document', async () => {
-      const fakeId = '507f1f77bcf86cd799439011';
-
-      const response = await request(app).get(`/api/v1/documents/${fakeId}`);
-
-      expect(response.status).toBe(404);
-      expect(response.body).toHaveProperty('error', 'document not found');
+      expect(response.status).toBe(401);
     });
   });
 
@@ -394,6 +483,7 @@ describe('Document Endpoints', () => {
     beforeEach(async () => {
       testDoc = await Document.create({
         title: 'Test Doc',
+        uploaderId: testUser.userId,
         source: {
           fileType: 'md',
           originalName: 'test.md',
@@ -404,7 +494,9 @@ describe('Document Endpoints', () => {
     });
 
     it('should return empty array when no blocks', async () => {
-      const response = await request(app).get(`/api/v1/documents/${testDoc._id}/blocks`);
+      const response = await request(app)
+        .get(`/api/v1/documents/${testDoc._id}/blocks`)
+        .set(authHeader(testUser.token));
 
       expect(response.status).toBe(200);
       expect(response.body).toEqual([]);
@@ -427,7 +519,9 @@ describe('Document Endpoints', () => {
         text: 'Paragraph'
       });
 
-      const response = await request(app).get(`/api/v1/documents/${testDoc._id}/blocks`);
+      const response = await request(app)
+        .get(`/api/v1/documents/${testDoc._id}/blocks`)
+        .set(authHeader(testUser.token));
 
       expect(response.status).toBe(200);
       expect(response.body).toHaveLength(2);
@@ -460,7 +554,9 @@ describe('Document Endpoints', () => {
         text: 'Page 1 Block 0'
       });
 
-      const response = await request(app).get(`/api/v1/documents/${testDoc._id}/blocks`);
+      const response = await request(app)
+        .get(`/api/v1/documents/${testDoc._id}/blocks`)
+        .set(authHeader(testUser.token));
 
       expect(response.status).toBe(200);
       expect(response.body[0].text).toBe('Page 1 Block 0');
@@ -471,6 +567,7 @@ describe('Document Endpoints', () => {
     it('should only return blocks for specified document', async () => {
       const otherDoc = await Document.create({
         title: 'Other Doc',
+        uploaderId: testUser.userId,
         source: {
           fileType: 'md',
           originalName: 'other.md',
@@ -495,7 +592,9 @@ describe('Document Endpoints', () => {
         text: 'Other Doc Block'
       });
 
-      const response = await request(app).get(`/api/v1/documents/${testDoc._id}/blocks`);
+      const response = await request(app)
+        .get(`/api/v1/documents/${testDoc._id}/blocks`)
+        .set(authHeader(testUser.token));
 
       expect(response.status).toBe(200);
       expect(response.body).toHaveLength(1);
@@ -503,10 +602,19 @@ describe('Document Endpoints', () => {
     });
 
     it('should reject invalid ID', async () => {
-      const response = await request(app).get('/api/v1/documents/invalid-id/blocks');
+      const response = await request(app)
+        .get('/api/v1/documents/invalid-id/blocks')
+        .set(authHeader(testUser.token));
 
       expect(response.status).toBe(400);
       expect(response.body).toHaveProperty('error', 'invalid id');
+    });
+
+    it('should reject request without token', async () => {
+      const response = await request(app)
+        .get(`/api/v1/documents/${testDoc._id}/blocks`);
+
+      expect(response.status).toBe(401);
     });
   });
 });

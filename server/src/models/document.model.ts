@@ -3,7 +3,7 @@ import { Schema, model, Types } from "mongoose";
 export interface IDocument {
   _id: Types.ObjectId;
   title: string;
-  uploaderId?: Types.ObjectId | null;
+  uploaderId: Types.ObjectId;
   source: {
     fileType: "md" | "pdf";
     originalName: string;
@@ -23,7 +23,7 @@ export interface IDocument {
 const DocumentSchema = new Schema<IDocument>(
   {
     title: { type: String, required: true },
-    uploaderId: { type: Schema.Types.ObjectId, ref: "User", default: null },
+    uploaderId: { type: Schema.Types.ObjectId, ref: "User", required: true, index: true },
     source: {
       fileType: { type: String, enum: ["md", "pdf"], required: true },
       originalName: { type: String, required: true },
@@ -42,6 +42,7 @@ const DocumentSchema = new Schema<IDocument>(
   { timestamps: true }
 );
 
+DocumentSchema.index({ uploaderId: 1, createdAt: -1 });
 DocumentSchema.index({ title: "text", tags: "text" });
 
 export const Document = model<IDocument>("Document", DocumentSchema);

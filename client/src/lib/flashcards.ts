@@ -1,6 +1,4 @@
-import axios from 'axios';
-
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000';
+import { API_URL } from "./api";
 
 export interface FlashcardQA {
   type: 'qa';
@@ -18,6 +16,7 @@ export interface FlashcardMC {
 
 export type GeneratedFlashcard = FlashcardQA | FlashcardMC;
 
+// ✅ Converted to fetch for consistency
 export async function generateFlashcardsFromDocument(
   documentId: string,
   type: 'qa' | 'mc',
@@ -28,15 +27,20 @@ export async function generateFlashcardsFromDocument(
   console.log('Document ID:', documentId);
   console.log('Type:', type, 'Count:', count);
   
-  const response = await axios.post(
-    `${API_URL}/api/v1/documents/${documentId}/generate-flashcards`,
-    { type, count },
-    { 
-      headers: { 
-        Authorization: `Bearer ${token}`,
-        'Content-Type': 'application/json'
-      } 
-    }
-  );
-  return response.data.flashcards;
+  const r = await fetch(`${API_URL}/api/v1/documents/${documentId}/generate-flashcards`, {
+    method: 'POST',
+    headers: { 
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({ type, count })
+  });
+
+  if (!r.ok) {
+    const error = await r.json().catch(() => ({}));
+    throw new Error(error?.message || 'Failed to generate flashcards');
+  }
+
+  const data = await r.json();
+  return data.flashcards;
 }

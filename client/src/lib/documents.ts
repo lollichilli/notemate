@@ -16,8 +16,25 @@ export type DocBlock = {
   text: string;
 };
 
+// ✅ Helper to get auth headers
+function getAuthHeaders(): HeadersInit {
+  const token = localStorage.getItem('nm_token');
+  const headers: HeadersInit = {
+    'Content-Type': 'application/json',
+  };
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+  return headers;
+}
+
 export async function listDocuments(): Promise<Doc[]> {
-  const r = await fetch(`${API_URL}/api/v1/documents`);
+  const token = localStorage.getItem('nm_token');
+  const r = await fetch(`${API_URL}/api/v1/documents`, {
+    headers: {
+      ...(token && { 'Authorization': `Bearer ${token}` })
+    }
+  });
   if (!r.ok) throw new Error("Failed to list documents");
   return r.json();
 }
@@ -25,7 +42,7 @@ export async function listDocuments(): Promise<Doc[]> {
 export async function createDocument(title: string): Promise<Doc> {
   const r = await fetch(`${API_URL}/api/v1/documents`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: getAuthHeaders(),
     body: JSON.stringify({ title }),
   });
   if (!r.ok) throw new Error("Failed to create document");
@@ -35,7 +52,7 @@ export async function createDocument(title: string): Promise<Doc> {
 export async function parseMarkdown(docId: string, markdown: string) {
   const r = await fetch(`${API_URL}/api/v1/documents/${docId}/parse-md`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: getAuthHeaders(),
     body: JSON.stringify({ markdown }),
   });
   if (!r.ok) throw new Error("Failed to parse markdown");
@@ -43,18 +60,29 @@ export async function parseMarkdown(docId: string, markdown: string) {
 }
 
 export async function listBlocks(docId: string): Promise<DocBlock[]> {
-  const r = await fetch(`${API_URL}/api/v1/documents/${docId}/blocks`);
+  const token = localStorage.getItem('nm_token');
+  const r = await fetch(`${API_URL}/api/v1/documents/${docId}/blocks`, {
+    headers: {
+      ...(token && { 'Authorization': `Bearer ${token}` })
+    }
+  });
   if (!r.ok) throw new Error("Failed to list blocks");
   return r.json();
 }
 
 export async function getDocument(id: string): Promise<Doc & { source?: any }> {
-  const r = await fetch(`${API_URL}/api/v1/documents/${id}`);
+  const token = localStorage.getItem('nm_token');
+  const r = await fetch(`${API_URL}/api/v1/documents/${id}`, {
+    headers: {
+      ...(token && { 'Authorization': `Bearer ${token}` })
+    }
+  });
   if (!r.ok) throw new Error("Failed to get document");
   return r.json();
 }
 
 export async function uploadPdfAndParse(documentId: string, file: File) {
+  const token = localStorage.getItem('nm_token');
   const fd = new FormData();
   fd.append("file", file);
 
@@ -67,6 +95,9 @@ export async function uploadPdfAndParse(documentId: string, file: File) {
     r = await fetch(url, {
       method: "POST",
       body: fd,
+      headers: {
+        ...(token && { 'Authorization': `Bearer ${token}` })
+      }
     });
   } catch (netErr: any) {
     throw new Error(`Network error hitting ${url}: ${netErr?.message ?? netErr}`);
@@ -80,4 +111,3 @@ export async function uploadPdfAndParse(documentId: string, file: File) {
   }
   return r.json();
 }
-

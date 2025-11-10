@@ -13,10 +13,10 @@ export interface IQuiz {
   _id: Types.ObjectId;
   title: string;
   documentId: Types.ObjectId;
-  createdBy?: Types.ObjectId | null;
+  createdBy: Types.ObjectId;
   questions: IQuizQuestion[];
   totalPoints: number;
-  timeLimit?: number; // minutes
+  timeLimit?: number;
   tags?: string[];
 }
 
@@ -33,7 +33,7 @@ const QuizSchema = new Schema<IQuiz>(
   {
     title: { type: String, required: true },
     documentId: { type: Schema.Types.ObjectId, ref: "Document", required: true, index: true },
-    createdBy: { type: Schema.Types.ObjectId, ref: "User", default: null },
+    createdBy: { type: Schema.Types.ObjectId, ref: "User", required: true, index: true },
     questions: { type: [QuizQuestionSchema], default: [] },
     totalPoints: { type: Number, default: 0 },
     timeLimit: { type: Number },
@@ -42,6 +42,7 @@ const QuizSchema = new Schema<IQuiz>(
   { timestamps: true }
 );
 
-QuizSchema.index({ documentId: 1, createdAt: -1 });
+QuizSchema.index({ createdBy: 1, createdAt: -1 });
+QuizSchema.index({ documentId: 1, createdBy: 1 });
 
 export const quiz = model<IQuiz>("Quiz", QuizSchema);
