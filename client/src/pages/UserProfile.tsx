@@ -3,7 +3,7 @@ import { useAuth } from '../contexts/AuthContext'
 import { PasswordInput } from '../components/PasswordStrengthIndicator'
 
 const UserProfile = () => {
-  const { user, updateProfile, updatePassword, logout } = useAuth()
+  const { user, updateProfile, updatePassword } = useAuth()
   
   const [isEditingProfile, setIsEditingProfile] = useState(false)
   const [isChangingPassword, setIsChangingPassword] = useState(false)
