@@ -14,9 +14,12 @@ const upload = multer({
   limits: { fileSize: 15 * 1024 * 1024 },
 });
 
-// Auth (public routes)
+// ✅ Auth Routes (public + protected)
 router.post("/auth/signup", Auth.register);
 router.post("/auth/login", Auth.login);
+router.get("/auth/me", Auth.me);
+router.put("/auth/profile", authenticate, Auth.updateProfile);
+router.put("/auth/password", authenticate, Auth.updatePassword);
 
 // ✅ Documents (all protected)
 router.get("/documents", authenticate, DocumentController.listDocuments);

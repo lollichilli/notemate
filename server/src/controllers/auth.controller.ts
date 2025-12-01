@@ -6,6 +6,15 @@ import { validatePassword } from "../utils/passwordValidator";
 
 const JWT_SECRET = process.env.JWT_SECRET || "dev_secret";
 
+// ✅ Define AuthRequest type
+interface AuthRequest extends Request {
+  user?: {
+    _id: string;
+    email: string;
+    name?: string;
+  };
+}
+
 export async function register(req: Request, res: Response) {
   try {
     const { name, email, password } = req.body;
@@ -94,5 +103,77 @@ export async function me(req: Request, res: Response) {
     res.json(user);
   } catch {
     res.status(401).json({ message: "Invalid token" });
+  }
+}
+
+// ✅ Update Profile - Now works with req.user
+export async function updateProfile(req: AuthRequest, res: Response) {
+  try {
+    const { name } = req.body;
+    
+    if (!req.user) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+    
+    const user = await User.findByIdAndUpdate(
+      req.user._id,  // ✅ Uses _id from middleware
+      { name },
+      { new: true }
+    ).select('-password');
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    res.json({ user });
+  } catch (error) {
+    console.error("Update profile error:", error);
+    res.status(500).json({ message: 'Error updating profile' });
+  }
+}
+
+// ✅ Update Password - Now works with req.user
+export async function updatePassword(req: AuthRequest, res: Response) {
+  try {
+    const { currentPassword, newPassword } = req.body;
+    
+    if (!req.user) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+
+    // Validate input
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({ message: "Current password and new password required" });
+    }
+    
+    const user = await User.findById(req.user._id);  // ✅ Uses _id from middleware
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    // Verify current password using bcrypt
+    const isMatch = await bcrypt.compare(currentPassword, user.password);
+    if (!isMatch) {
+      return res.status(401).json({ message: 'Current password is incorrect' });
+    }
+
+    // Validate new password
+    const validation = validatePassword(newPassword);
+    if (!validation.isValid) {
+      return res.status(400).json({
+        message: 'Password does not meet requirements',
+        errors: validation.errors
+      });
+    }
+
+    // Hash new password before saving
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    user.password = hashedPassword;
+    await user.save();
+
+    res.json({ message: 'Password updated successfully' });
+  } catch (error) {
+    console.error("Update password error:", error);
+    res.status(500).json({ message: 'Error updating password' });
   }
 }

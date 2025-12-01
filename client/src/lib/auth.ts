@@ -55,3 +55,59 @@ export async function login(email: string, password: string) {
   
   return body as { token: string; user: AuthUser };
 }
+
+// ✅ Updated to match your AuthError pattern
+export async function updateProfile(data: { name: string }): Promise<AuthUser> {
+  const token = localStorage.getItem("nm_token");
+  
+  if (!token) {
+    throw new AuthError("Not authenticated");
+  }
+
+  const r = await fetch(`${API_URL}/api/v1/auth/profile`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`
+    },
+    body: JSON.stringify(data)
+  });
+
+  const body = await r.json().catch(() => ({}));
+
+  if (!r.ok) {
+    const message = body?.message || body?.error || "Failed to update profile";
+    throw new AuthError(message);
+  }
+
+  return body.user as AuthUser;
+}
+
+// ✅ Updated to match your AuthError pattern
+export async function updatePassword(
+  currentPassword: string, 
+  newPassword: string
+): Promise<void> {
+  const token = localStorage.getItem("nm_token");
+  
+  if (!token) {
+    throw new AuthError("Not authenticated");
+  }
+
+  const r = await fetch(`${API_URL}/api/v1/auth/password`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`
+    },
+    body: JSON.stringify({ currentPassword, newPassword })
+  });
+
+  const body = await r.json().catch(() => ({}));
+
+  if (!r.ok) {
+    const message = body?.message || body?.error || "Failed to update password";
+    const errors = body?.errors; // Password validation errors
+    throw new AuthError(message, errors);
+  }
+}

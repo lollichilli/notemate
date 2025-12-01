@@ -7,6 +7,8 @@ type AuthState = {
   login: (email: string, password: string) => Promise<void>;
   signup: (email: string, password: string, name?: string) => Promise<void>;
   logout: () => void;
+  updateProfile: (data: { name: string }) => Promise<void>;
+  updatePassword: (currentPassword: string, newPassword: string) => Promise<void>;
 };
 
 const AuthContext = createContext<AuthState | undefined>(undefined);
@@ -20,7 +22,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const u = localStorage.getItem("nm_user");
     if (t) setToken(t);
     if (u) {
-      try { setUser(JSON.parse(u)); } catch {}
+      try { 
+        setUser(JSON.parse(u)); 
+      } catch {}
     }
   }, []);
 
@@ -47,7 +51,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     localStorage.removeItem("nm_user");
   };
 
-  const value = useMemo(() => ({ user, token, login, signup, logout }), [user, token]);
+  const updateProfile = async (data: { name: string }) => {
+    const updatedUser = await api.updateProfile(data);
+    setUser(updatedUser);
+    localStorage.setItem("nm_user", JSON.stringify(updatedUser));
+  };
+
+  const updatePassword = async (currentPassword: string, newPassword: string) => {
+    await api.updatePassword(currentPassword, newPassword);
+  };
+
+  const value = useMemo(
+    () => ({ user, token, login, signup, logout, updateProfile, updatePassword }), 
+    [user, token]
+  );
+  
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 

@@ -4,6 +4,11 @@ import jwt from "jsonwebtoken";
 const JWT_SECRET = process.env.JWT_SECRET || "dev_secret";
 
 export interface AuthRequest extends Request {
+  user?: {
+    _id: string;
+    id: string;
+    [key: string]: any;
+  };
   auth?: {
     id: string;
     [key: string]: any;
@@ -23,7 +28,16 @@ export function requireAuth(
   }
 
   try {
-    req.auth = jwt.verify(token, JWT_SECRET) as any;
+    const decoded = jwt.verify(token, JWT_SECRET) as any;
+    
+    // ✅ Set both req.auth (for backward compatibility) and req.user (for new routes)
+    req.auth = decoded;
+    req.user = {
+      _id: decoded.id,
+      id: decoded.id,
+      ...decoded
+    };
+    
     next();
   } catch {
     return res.status(401).json({ error: "invalid token" });

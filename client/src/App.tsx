@@ -8,10 +8,11 @@ import Decks from "./pages/Decks";
 import Quizzes from "./pages/Quizzes";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
+import UserProfile from './pages/UserProfile';
 
 export default function App() {
   const [health, setHealth] = useState<string>("Checking...");
-  const { user, logout} = useAuth();
+  const { user, logout } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -57,11 +58,37 @@ export default function App() {
           
           {user ? (
             <>
-              <span style={{ fontSize: 13, color: "#666" }}>
-                {user.name || user.email}
-              </span>
+              <NavLink 
+                to="/profile" 
+                style={({ isActive }) => ({
+                  textDecoration: "none", 
+                  color: isActive ? "#5B5FED" : "#666",
+                  fontSize: 13,
+                  fontWeight: 500,
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "6px"
+                })}
+              >
+                <svg 
+                  width="16" 
+                  height="16" 
+                  viewBox="0 0 24 24" 
+                  fill="none" 
+                  stroke="currentColor" 
+                  strokeWidth="2"
+                >
+                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                  <circle cx="12" cy="7" r="4" />
+                </svg>
+                Profile
+              </NavLink>
               <button
-                onClick={() => { logout(); navigate("/login", { replace: true }); }}
+                onClick={() => { 
+                  logout(); 
+                  navigate("/login", { replace: true }); 
+                }}
                 style={{
                   padding: "8px 14px",
                   borderRadius: 6,
@@ -118,6 +145,7 @@ export default function App() {
           <Route path="/" element={user ? <Navigate to="/dashboard" replace /> : <Navigate to="/login" replace />} />
           <Route path="/dashboard" element={user ? <Dashboard /> : <Navigate to="/login" replace />} />
           <Route path="/documents" element={user ? <Documents /> : <Navigate to="/login" replace />} />
+          <Route path="/profile" element={user ? <UserProfile /> : <Navigate to="/login" replace />} />
           <Route path="/decks" element={user ? <Decks /> : <Navigate to="/login" replace />} />
           <Route path="/quizzes" element={user ? <Quizzes /> : <Navigate to="/login" replace />} />
           <Route path="*" element={<p>Not found</p>} />
